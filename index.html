@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroFlow | AI-Inspired Study Planner</title>
+    <meta name="description"
+        content="A futuristic, productivity-focused study planner for developers preparing for interviews.">
+    <meta name="theme-color" content="#050508">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Space+Grotesk:wght@300;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body class="dark-theme">
+    <button class="mobile-toggle" id="mobile-toggle">
+        <i class="fas fa-bars"></i>
+    </button>
+    <div class="app-container">
+        <!-- Animated Background Elements -->
+        <div class="glow-orb" id="orb-1"></div>
+        <div class="glow-orb" id="orb-2"></div>
+
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-brain-circuit neon-text"></i>
+                <span class="logo-text">Neuro<span>Flow</span></span>
+            </div>
+
+            <nav class="nav-menu">
+                <a href="#dashboard" class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#roadmap" class="nav-item" data-page="roadmap">
+                    <i class="fas fa-map-location-dot"></i>
+                    <span>Roadmap</span>
+                </a>
+                <a href="#focus" class="nav-item" data-page="focus">
+                    <i class="fas fa-stopwatch"></i>
+                    <span>Focus Mode</span>
+                </a>
+                <a href="#analytics" class="nav-item" data-page="analytics">
+                    <i class="fas fa-wave-square"></i>
+                    <span>Analytics</span>
+                </a>
+                <a href="#distractions" class="nav-item" data-page="distractions">
+                    <i class="fas fa-ban"></i>
+                    <span>Distractions</span>
+                </a>
+            </nav>
+
+            <div class="user-profile">
+                <div class="xp-bar-container">
+                    <div class="xp-info">
+                        <span>Level <span id="user-level">1</span></span>
+                        <span><span id="user-xp">0</span> / 1000 XP</span>
+                    </div>
+                    <div class="xp-bar">
+                        <div class="xp-progress" style="width: 10%;"></div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="content">
+            <header class="top-bar">
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search roadmap...">
+                </div>
+                <div class="top-stats">
+                    <div class="stat-badge">
+                        <i class="fas fa-fire flame-icon"></i>
+                        <span id="streak-count">0 Days</span>
+                    </div>
+                    <div class="stat-badge">
+                        <i class="fas fa-clock"></i>
+                        <span id="total-hours">0.0h</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Page Sections -->
+            <section id="dashboard" class="page active">
+                <div class="welcome-header">
+                    <h1>Welcome Back, <span class="neon-text">Developer</span></h1>
+                    <p>Ready to crush your interview preparation today?</p>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="glass-card main-stats">
+                        <h3>Today's Focus</h3>
+                        <div class="focus-progress-container">
+                            <div class="circular-progress">
+                                <svg>
+                                    <circle cx="70" cy="70" r="60"></circle>
+                                    <circle cx="70" cy="70" r="60" class="progress-bar-circle"></circle>
+                                </svg>
+                                <div class="progress-content">
+                                    <span class="number" id="daily-progress-percent">0%</span>
+                                    <span class="label">Target</span>
+                                </div>
+                            </div>
+                            <div class="stats-list">
+                                <div class="mini-stat">
+                                    <span class="label">Completed</span>
+                                    <span class="val" id="today-completed-topics">0 Topics</span>
+                                </div>
+                                <div class="mini-stat">
+                                    <span class="label">Time Studied</span>
+                                    <span class="val" id="today-focus-time">0m</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card upcoming-tasks">
+                        <div class="card-header">
+                            <h3>Priority Roadmap</h3>
+                            <button class="btn-icon"><i class="fas fa-plus"></i></button>
+                        </div>
+                        <ul class="task-list" id="priority-task-list">
+                            <li class="empty-state">No active roadmap items. Add one now!</li>
+                        </ul>
+                    </div>
+
+                    <div class="glass-card mini-chart">
+                        <h3>Daily Intensity</h3>
+                        <canvas id="dailyIntensityChart"></canvas>
+                    </div>
+
+                    <div class="glass-card achievements">
+                        <h3>Achievements</h3>
+                        <div class="badge-grid" id="badge-container">
+                            <div class="badge-icon locked" title="Study for 7 days straight">
+                                <i class="fas fa-medal"></i>
+                            </div>
+                            <div class="badge-icon locked" title="Complete 10 topics">
+                                <i class="fas fa-award"></i>
+                            </div>
+                            <div class="badge-icon locked" title="Total 50 hours studied">
+                                <i class="fas fa-trophy"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="roadmap" class="page">
+                <div class="section-header">
+                    <h1>Syllabus <span class="neon-text">Mastery</span></h1>
+                    <button class="btn-primary" id="add-subject-btn">
+                        <i class="fas fa-plus"></i> Add Subject
+                    </button>
+                </div>
+
+                <div class="roadmap-container" id="roadmap-subjects">
+                    <!-- Subjects will be injected here -->
+                </div>
+            </section>
+
+            <section id="focus" class="page">
+                <div class="focus-layout">
+                    <div class="timer-container glass-card">
+                        <div class="timer-modes">
+                            <button class="timer-mode-btn active" data-time="25">Focus (25m)</button>
+                            <button class="timer-mode-btn" data-time="45">Deep Work (45m)</button>
+                            <button class="timer-mode-btn" data-time="60">Flow State (60m)</button>
+                        </div>
+                        <div class="timer-display">
+                            <span id="minutes">25</span>:<span id="seconds">00</span>
+                        </div>
+                        <div class="timer-controls">
+                            <button id="start-timer" class="btn-glow">START SESSION</button>
+                            <button id="reset-timer" class="btn-outline">RESET</button>
+                        </div>
+                        <div class="breathing-effect"></div>
+                    </div>
+
+                    <div class="quote-container glass-card">
+                        <i class="fas fa-quote-left"></i>
+                        <p id="motivational-quote">"The only way to do great work is to love what you do."</p>
+                        <cite>— Steve Jobs</cite>
+                    </div>
+                </div>
+            </section>
+
+            <section id="analytics" class="page">
+                <div class="analytics-grid">
+                    <div class="glass-card full-width">
+                        <h3>Productivity Heatmap</h3>
+                        <div id="heatmap-placeholder" class="heatmap"></div>
+                    </div>
+                    <div class="glass-card">
+                        <h3>Study Consistency</h3>
+                        <canvas id="consistencyChart"></canvas>
+                    </div>
+                    <div class="glass-card">
+                        <h3>Subject Distribution</h3>
+                        <canvas id="subjectDistributionChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section id="distractions" class="page">
+                <div class="distraction-layout">
+                    <div class="glass-card">
+                        <h3>Log Distraction</h3>
+                        <form id="distraction-form" class="neuro-form">
+                            <div class="form-group">
+                                <label>What distracted you?</label>
+                                <select id="distraction-reason">
+                                    <option value="YouTube">YouTube</option>
+                                    <option value="Instagram">Instagram</option>
+                                    <option value="Gaming">Gaming</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Duration (minutes)</label>
+                                <input type="number" id="distraction-duration" placeholder="e.g. 15">
+                            </div>
+                            <button type="submit" class="btn-primary">Log Time</button>
+                        </form>
+                    </div>
+                    <div class="glass-card">
+                        <h3>Focus vs Distraction</h3>
+                        <canvas id="distractionVsFocusChart"></canvas>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal glass-card">
+            <div id="modal-content"></div>
+            <button class="btn-close" id="close-modal">&times;</button>
+        </div>
+    </div>
+
+    <script src="js/storage.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/timer.js"></script>
+    <script src="js/analytics.js"></script>
+    <script src="js/main.js"></script>
+</body>
+
+</html>

@@ -109,6 +109,9 @@ export default function Register() {
                                         value={formData.phone}
                                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                         required
+                                        minLength={10}
+                                        pattern=".{10,}"
+                                        title="Phone number must be at least 10 characters long"
                                     />
                                 </div>
                             </div>

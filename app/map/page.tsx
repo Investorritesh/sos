@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -12,12 +12,13 @@ import {
     ArrowLeft,
     Search,
     User as UserIcon,
+    Navigation,
+    Mic,
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import { useAlarm } from '@/hooks/useAlarm';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
-import { Mic } from 'lucide-react';
 
 interface ReceivedSignal {
     _id: string;
@@ -48,6 +49,91 @@ export default function MapPage() {
     const { startAlarm, stopAlarm } = useAlarm();
     const { startRecording, stopRecording, isRecording } = useAudioRecorder();
 
+    const mapInstance = useRef<any>(null);
+    const markers = useRef<{ user?: any; signals: any[] }>({ signals: [] });
+
+    // ─── Map Initialization ───────────────────────────────────────────────
+    useEffect(() => {
+        if (!coords || mapInstance.current) return;
+
+        const initMap = async () => {
+            if (typeof window === 'undefined') return;
+
+            if (!document.getElementById('leaflet-css')) {
+                const link = document.createElement('link');
+                link.id = 'leaflet-css';
+                link.rel = 'stylesheet';
+                link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+                document.head.appendChild(link);
+            }
+
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+            script.async = true;
+            script.onload = () => {
+                const L = (window as any).L;
+                if (!L) return;
+
+                const map = L.map('main-map', {
+                    zoomControl: false,
+                    attributionControl: false
+                }).setView([coords.lat, coords.lng], 15);
+
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                    maxZoom: 20
+                }).addTo(map);
+
+                L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+                const userIcon = L.divIcon({
+                    className: 'user-marker',
+                    html: `<div style="background:#6366f1; width:24px; height:24px; border:4px solid white; border-radius:50%; box-shadow:0 0 15px rgba(99,102,241,0.5); position:relative;">
+                             <div style="position:absolute; inset:-8px; border:2px solid #6366f1; border-radius:50%; animation:ping 2s infinite;"></div>
+                           </div>`,
+                    iconSize: [24, 24]
+                });
+                markers.current.user = L.marker([coords.lat, coords.lng], { icon: userIcon }).addTo(map);
+
+                mapInstance.current = map;
+                (window as any).mainMap = map;
+            };
+            document.head.appendChild(script);
+        };
+
+        const timer = setTimeout(initMap, 100);
+        return () => clearTimeout(timer);
+    }, [coords]);
+
+    // ─── Render Signal Markers ───────────────────────────────────────────
+    useEffect(() => {
+        const L = (window as any).L;
+        const map = mapInstance.current;
+        if (!L || !map) return;
+
+        markers.current.signals.forEach(m => map.removeLayer(m));
+        markers.current.signals = [];
+
+        receivedSignals.forEach(signal => {
+            const emergencyIcon = L.divIcon({
+                className: 'emergency-marker',
+                html: `<div style="background:#ef4444; width:20px; height:20px; border:3px solid white; border-radius:50%; box-shadow:0 0 15px rgba(239,68,68,0.6); animation:bounce 1s infinite;"></div>`,
+                iconSize: [20, 20]
+            });
+
+            const marker = L.marker([signal.location.lat, signal.location.lng], { icon: emergencyIcon })
+                .addTo(map)
+                .bindPopup(`
+                    <div style="padding:10px; min-width:150px;">
+                        <b style="color:#ef4444; text-transform:uppercase; font-size:10px;">🚨 SOS SIGNAL</b>
+                        <p style="margin:5px 0; font-weight:900;">${signal.userId?.name}</p>
+                        <p style="font-size:11px; color:#64748b;">${signal.location.address}</p>
+                        <a href="tel:${signal.userId?.phone}" style="display:block; margin-top:10px; background:#ef4444; color:white; text-align:center; padding:8px; border-radius:10px; text-decoration:none; font-weight:bold; font-size:11px;">CALL EMERGENCY</a>
+                    </div>
+                `);
+            markers.current.signals.push(marker);
+        });
+    }, [receivedSignals]);
+
     useEffect(() => {
         if (isSOSActive) {
             startRecording();
@@ -57,7 +143,6 @@ export default function MapPage() {
     }, [isSOSActive, startRecording, stopRecording]);
 
     useEffect(() => {
-        // Battery Status API
         if ('getBattery' in (navigator as any)) {
             (navigator as any).getBattery().then((battery: any) => {
                 setBatteryLevel(Math.round(battery.level * 100));
@@ -69,7 +154,6 @@ export default function MapPage() {
 
         const timer = setTimeout(() => setIsScanning(false), 3000);
 
-        // Fetch own SOS status
         fetch('/api/sos')
             .then(res => res.json())
             .then(data => {
@@ -86,14 +170,12 @@ export default function MapPage() {
             });
         }
 
-        // Fetch received signals
         const fetchSignals = async () => {
             try {
                 const res = await fetch('/api/sos/received');
                 if (res.ok) {
                     const data = await res.json();
                     if (Array.isArray(data)) {
-                        // If new signals found that weren't there before, notify
                         if (data.length > receivedSignals.length) {
                             toast.error('NEW EMERGENCY SIGNAL RECEIVED!', {
                                 duration: 5000,
@@ -109,7 +191,7 @@ export default function MapPage() {
         };
 
         fetchSignals();
-        const signalInterval = setInterval(fetchSignals, 10000); // Poll every 10s
+        const signalInterval = setInterval(fetchSignals, 10000);
 
         return () => {
             clearTimeout(timer);
@@ -119,11 +201,9 @@ export default function MapPage() {
 
     const handleBroadcast = async () => {
         if (isSOSActive) {
-            // Deactivate — stop immediately with 10s suppression
             stopAlarm(10000);
             setIsSOSActive(false);
 
-            // If no server ID exists, just deactivate locally
             if (!activeSOSId) {
                 toast.success('SOS DEACTIVATED');
                 return;
@@ -135,7 +215,6 @@ export default function MapPage() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: activeSOSId }),
                 });
-                // Regardless of server response, we're already deactivated locally
                 setActiveSOSId(null);
                 toast.success(res.ok ? 'SOS DEACTIVATED' : 'SOS DEACTIVATED (Local)');
             } catch (error) {
@@ -216,123 +295,122 @@ export default function MapPage() {
                     )}
                 </div>
 
-                <div className="flex flex-col lg:flex-row gap-8">
-                    {/* Map Simulation */}
-                    <div className="flex-1 min-h-[550px] bg-white rounded-[2.5rem] relative overflow-hidden shadow-2xl shadow-indigo-100/50 border border-slate-100 group">
-                        <div className="absolute inset-0 bg-[#f8fafc]">
-                            {/* Premium Grid Pattern */}
-                            <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1.5px,transparent_1.5px)] [background-size:24px_24px] opacity-60" />
-
-                            <div className="relative w-full h-full">
-                                {/* Indigo Radar Effect - Scaled for mobile */}
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                                    <div className="w-[300px] h-[300px] md:w-[450px] md:h-[450px] bg-indigo-50/50 rounded-full animate-ping opacity-30" />
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250px] h-[250px] md:w-[350px] md:h-[350px] border border-indigo-100 rounded-full" />
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150px] h-[150px] md:w-[200px] md:h-[200px] border border-indigo-200/50 rounded-full" />
+                <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="mb-8"
+                >
+                    <Link href="/safe-route" className="block group">
+                        <div className="relative overflow-hidden p-6 bg-gradient-to-r from-indigo-600 to-violet-600 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between cursor-pointer shadow-2xl shadow-indigo-200/60 hover:shadow-indigo-300/80 transition-all border border-indigo-400/20">
+                            <div className="absolute inset-0 bg-[radial-gradient(#ffffff15_1px,transparent_1px)] [background-size:20px_20px]" />
+                            <div className="relative flex items-center gap-5 mb-4 md:mb-0">
+                                <div className="p-4 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20">
+                                    <Shield className="w-7 h-7 text-white" />
                                 </div>
-
-                                {/* Current User Marker */}
-                                <motion.div
-                                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20"
-                                    animate={{ scale: [1, 1.1, 1] }}
-                                    transition={{ repeat: Infinity, duration: 3 }}
-                                >
-                                    <div className="p-4 bg-primary rounded-full shadow-2xl shadow-indigo-400 ring-8 ring-indigo-50">
-                                        <Shield className="w-8 h-8 text-white" />
-                                    </div>
-                                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 bg-white px-4 py-2 rounded-xl text-[10px] font-black tracking-widest border border-slate-100 shadow-xl text-primary whitespace-nowrap">
-                                        MY LOCATION
-                                    </div>
-                                </motion.div>
-
-                                {/* Received Signal Markers */}
-                                <AnimatePresence>
-                                    {receivedSignals.map((signal, idx) => (
-                                        <motion.div
-                                            key={signal._id}
-                                            initial={{ scale: 0, opacity: 0 }}
-                                            animate={{ scale: 1, opacity: 1 }}
-                                            className="absolute z-30"
-                                            style={{
-                                                top: `${30 + (idx * 15)}%`,
-                                                left: `${20 + (idx * 25)}%`,
-                                            }}
-                                        >
-                                            <div className="relative group/marker">
-                                                <div className="p-3 bg-red-500 rounded-full shadow-2xl shadow-red-200 animate-bounce cursor-pointer ring-4 ring-red-100">
-                                                    <AlertCircle className="w-5 h-5 text-white" />
-                                                </div>
-                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 bg-white p-3 rounded-2xl shadow-2xl border border-red-100 min-w-[200px] hidden group-hover/marker:block z-50">
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center">
-                                                            <UserIcon className="w-5 h-5 text-red-500" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-sm font-black text-slate-900">{signal.userId?.name}</p>
-                                                            <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Active SOS</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="space-y-1 py-2 border-t border-slate-50">
-                                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Started: {new Date(signal.startedAt).toLocaleTimeString()}</p>
-                                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Energy: {signal.batteryLevel || '--'}%</p>
-                                                    </div>
-                                                    <a href={`tel:${signal.userId?.phone}`} className="w-full mt-2 flex items-center justify-center gap-2 py-2 bg-red-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors">
-                                                        <PhoneCall className="w-3 h-3" /> Call Emergency
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    ))}
-                                </AnimatePresence>
-
-                                {/* Points of Interest */}
-                                <div className="absolute top-1/4 left-1/3 w-4 h-4 bg-blue-500 rounded-full shadow-lg ring-4 ring-blue-50" />
-                                <div className="absolute top-2/3 left-1/4 w-4 h-4 bg-emerald-500 rounded-full shadow-lg ring-4 ring-emerald-50" />
-                                <div className="absolute top-1/3 left-2/3 w-4 h-4 bg-amber-500 rounded-full shadow-lg ring-4 ring-amber-50" />
-                            </div>
-                        </div>
-
-                        <div className="absolute top-4 left-4 md:top-6 md:left-6 z-10 w-[calc(100%-2rem)] md:w-auto">
-                            <div className="bg-white/90 backdrop-blur-md px-4 md:px-5 py-2.5 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-100 shadow-lg">
-                                <div className={`w-3 h-3 rounded-full ${isScanning ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
-                                <span className="text-[10px] font-black tracking-widest text-slate-900 uppercase">
-                                    {isScanning ? 'Syncing...' : 'Encrypted Link Active'}
-                                </span>
-                                {isRecording && (
-                                    <div className="flex items-center gap-2 px-3 py-1 bg-red-50 text-red-500 rounded-xl animate-pulse border border-red-100">
-                                        <Mic className="w-3 h-3" />
-                                        <span className="text-[8px] font-black uppercase tracking-widest">Digital Witness Live</span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="absolute bottom-4 left-4 right-4 md:bottom-8 md:left-8 md:right-8 z-10">
-                            <div className="bg-white/95 backdrop-blur-xl p-4 md:p-6 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 md:gap-0 rounded-3xl border border-slate-100 shadow-2xl">
                                 <div>
-                                    <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Current Sector</p>
-                                    <p className="text-sm md:text-base font-black flex items-center gap-2 text-slate-900">
-                                        <Shield className="w-5 h-5 text-emerald-500" /> SECURE PERIMETER
-                                    </p>
+                                    <h3 className="text-white font-black text-xl tracking-tight leading-none mb-2">Safest Route Navigator</h3>
+                                    <p className="text-white/70 text-[10px] font-bold uppercase tracking-[0.2em]">AI Powered · Crime Data · Street Lighting · User Reports</p>
                                 </div>
-                                <div className="flex items-center gap-3 md:gap-4">
-                                    {receivedSignals.length > 0 && (
-                                        <div className="flex-1 md:flex-none flex items-center justify-center gap-2 px-3 md:px-4 py-2 bg-red-50 text-red-600 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-red-100 animate-pulse text-center">
-                                            {receivedSignals.length} Active Signal(s)
-                                        </div>
-                                    )}
+                            </div>
+                            <div className="relative flex items-center gap-3 px-8 py-3.5 bg-white text-indigo-700 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl group-hover:scale-105 transition-transform">
+                                <Navigation className="w-4 h-4" />
+                                Find Safest Path
+                            </div>
+                        </div>
+                    </Link>
+                </motion.div>
+
+                <div className="flex flex-col lg:flex-row gap-8">
+                    <div className="flex-1 min-h-[550px] bg-white rounded-[2.5rem] relative overflow-hidden shadow-2xl shadow-indigo-100/50 border border-slate-100 group">
+
+                        <div id="main-map" className="w-full h-full z-0" style={{ background: '#f8fafc' }} />
+
+                        <div className="absolute top-6 left-6 right-6 z-[1000]">
+                            <div className="flex flex-col md:flex-row gap-3">
+                                <div className="flex-1 flex gap-2 p-2 bg-white/90 backdrop-blur-xl rounded-2xl border border-white shadow-2xl focus-within:ring-2 ring-indigo-500/20 transition-all">
+                                    <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600">
+                                        <Search className="w-4 h-4" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        id="map-global-search"
+                                        placeholder="Search local safe spots, hospitals, or landmarks..."
+                                        className="flex-1 bg-transparent border-none outline-none text-sm font-semibold text-slate-800 placeholder:text-slate-300"
+                                        onKeyDown={async (e) => {
+                                            if (e.key === 'Enter') {
+                                                const val = (e.target as HTMLInputElement).value;
+                                                if (!val.trim()) return;
+                                                try {
+                                                    const bias = 0.5;
+                                                    const viewbox = coords ? `${coords.lng - bias},${coords.lat + bias},${coords.lng + bias},${coords.lat - bias}` : '';
+                                                    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&limit=1&viewbox=${viewbox}`);
+                                                    const data = await res.json();
+                                                    if (data.length > 0) {
+                                                        const L = (window as any).L;
+                                                        const map = (window as any).mainMap;
+                                                        if (map && L) {
+                                                            const target = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+                                                            map.flyTo(target, 16);
+                                                            L.marker(target, {
+                                                                icon: L.divIcon({
+                                                                    html: `<div style="background:#6366f1; width:12px; height:12px; border:3px solid white; border-radius:50%; box-shadow:0 0 10px rgba(99,102,241,0.5);"></div>`
+                                                                })
+                                                            }).addTo(map).bindPopup(`<b>${data[0].display_name}</b>`).openPopup();
+                                                        }
+                                                    } else {
+                                                        toast.error('Location not found in your area.');
+                                                    }
+                                                } catch (err) {
+                                                    toast.error('Search failed.');
+                                                }
+                                            }
+                                        }}
+                                    />
                                     <button
-                                        onClick={() => setIsScanning(true)}
-                                        className="flex-1 md:flex-none bg-slate-900 text-white px-5 md:px-6 py-2.5 md:py-3 rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
+                                        onClick={() => coords && (window as any).mainMap?.flyTo([coords.lat, coords.lng], 16)}
+                                        className="p-3 hover:bg-slate-50 rounded-xl transition-colors text-slate-400 group"
                                     >
-                                        Scan Area
+                                        <MapPin className="w-4 h-4 group-hover:text-indigo-600" />
                                     </button>
                                 </div>
                             </div>
                         </div>
+
+                        <div className="absolute bottom-8 left-8 right-8 z-[1000] hidden md:block">
+                            <div className="bg-white/95 backdrop-blur-xl p-4 md:p-6 flex items-center justify-between rounded-3xl border border-white shadow-2xl">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center">
+                                        <Shield className="w-6 h-6 text-emerald-500" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Encrypted Data Active</p>
+                                        <p className="text-base font-black text-slate-900 flex items-center gap-2">
+                                            LIVE SECURE PERIMETER
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    {receivedSignals.length > 0 && (
+                                        <div className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-100 animate-pulse">
+                                            {receivedSignals.length} Active Emergency
+                                        </div>
+                                    )}
+                                    <Link href="/safe-route" className="px-6 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200">
+                                        Navigator AI
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+
+                        {!coords && (
+                            <div className="absolute inset-0 bg-slate-50/80 backdrop-blur-md z-[2000] flex flex-col items-center justify-center gap-4">
+                                <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Syncing Satellite Data...</span>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Infrastructure Sidebar */}
                     <div className="w-full lg:w-[450px] space-y-6">
                         {receivedSignals.length > 0 && (
                             <div className="bg-white border-2 border-red-500/20 rounded-[2.5rem] p-6 shadow-2xl shadow-red-100/50">

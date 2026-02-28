@@ -7,6 +7,7 @@ import {
   MapPin,
   Phone,
   ShieldAlert,
+  Shield,
   Settings,
   MessageSquare,
   Navigation,
@@ -343,13 +344,13 @@ export default function Home() {
               sub="Evidence Log"
             />
           </Link>
-          <button onClick={() => toast.success('Smart Settings Coming Soon!')} className="contents text-left">
+          <Link href="/safe-route" className="contents">
             <ActionCard
-              icon={<Settings className="text-slate-500" />}
-              label="Security"
-              sub="Protocols"
+              icon={<Shield className="text-indigo-600" />}
+              label="Safe Path"
+              sub="AI Navigator"
             />
-          </button>
+          </Link>
         </div>
       </div>
 

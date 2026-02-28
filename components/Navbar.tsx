@@ -69,12 +69,8 @@ export const Navbar = ({ pollingFrequency = 10000 }: { pollingFrequency?: number
 
                     <div className="hidden md:flex items-center gap-10">
                         <NavLink href="/" icon={<LayoutDashboard className="w-4 h-4" />} label="Monitor" />
-                        <NavLink
-                            href="/map"
-                            icon={hasActiveSignal ? <AlertCircle className="w-4 h-4 text-red-500 animate-pulse" /> : <Shield className="w-4 h-4" />}
-                            label="Security Map"
-                            isAlert={hasActiveSignal}
-                        />
+                        <NavLink href="/map" icon={hasActiveSignal ? <AlertCircle className="w-4 h-4 text-red-500 animate-pulse" /> : <MapPin className="w-4 h-4" />} label="Security Map" isAlert={hasActiveSignal} />
+                        <NavLink href="/safe-route" icon={<Shield className="w-4 h-4" />} label="Safe Route" />
                         {session && (
                             <NavLink href="/profile" icon={<User className="w-4 h-4" />} label="Deployment" />
                         )}
@@ -128,8 +124,8 @@ export const Navbar = ({ pollingFrequency = 10000 }: { pollingFrequency?: number
                         className="fixed inset-0 top-0 left-0 w-full h-screen bg-white/95 backdrop-blur-3xl z-[90] flex flex-col pt-32 px-10 md:hidden"
                     >
                         <div className="flex flex-col gap-8">
-                            <MobileNavLink href="/" icon={<LayoutDashboard className="w-6 h-6" />} label="Monitor" onClick={() => setIsMobileMenuOpen(false)} />
                             <MobileNavLink href="/map" icon={<MapPin className="w-6 h-6" />} label="Security Map" onClick={() => setIsMobileMenuOpen(false)} />
+                            <MobileNavLink href="/safe-route" icon={<Shield className="w-6 h-6" />} label="Safe Route" onClick={() => setIsMobileMenuOpen(false)} />
                             {session && (
                                 <MobileNavLink href="/profile" icon={<User className="w-6 h-6" />} label="Profile Hub" onClick={() => setIsMobileMenuOpen(false)} />
                             )}

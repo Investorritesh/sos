@@ -96,6 +96,14 @@ export default function MapPage() {
 
                 mapInstance.current = map;
                 (window as any).mainMap = map;
+
+                // Handle responsive container resizing
+                const resizeObserver = new ResizeObserver(() => {
+                    map.invalidateSize();
+                });
+                if (document.getElementById('main-map')) {
+                    resizeObserver.observe(document.getElementById('main-map')!);
+                }
             };
             document.head.appendChild(script);
         };
@@ -322,14 +330,14 @@ export default function MapPage() {
                 </motion.div>
 
                 <div className="flex flex-col lg:flex-row gap-8">
-                    <div className="flex-1 min-h-[550px] bg-white rounded-[2.5rem] relative overflow-hidden shadow-2xl shadow-indigo-100/50 border border-slate-100 group">
+                    {/* Main Map View */}
+                    <div className="h-[500px] lg:h-auto lg:flex-1 bg-white rounded-[2.5rem] relative overflow-hidden shadow-2xl shadow-indigo-100/50 border border-slate-100 group order-1 lg:order-1">
+                        <div id="main-map" className="w-full h-full min-h-full z-0" style={{ background: '#f8fafc' }} />
 
-                        <div id="main-map" className="w-full h-full z-0" style={{ background: '#f8fafc' }} />
-
-                        <div className="absolute top-6 left-6 right-6 z-[1000]">
-                            <div className="flex flex-col md:flex-row gap-3">
-                                <div className="flex-1 flex gap-2 p-2 bg-white/90 backdrop-blur-xl rounded-2xl border border-white shadow-2xl focus-within:ring-2 ring-indigo-500/20 transition-all">
-                                    <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600">
+                        <div className="absolute top-4 left-4 right-4 z-[1001]">
+                            <div className="flex flex-col md:flex-row gap-2">
+                                <div className="flex-1 flex gap-2 p-1.5 bg-white/95 backdrop-blur-2xl rounded-2xl border border-white shadow-2xl focus-within:ring-2 ring-indigo-500/20 transition-all">
+                                    <div className="p-2.5 bg-indigo-50 rounded-xl text-indigo-600">
                                         <Search className="w-4 h-4" />
                                     </div>
                                     <input
@@ -377,26 +385,26 @@ export default function MapPage() {
                             </div>
                         </div>
 
-                        <div className="absolute bottom-8 left-8 right-8 z-[1000] hidden md:block">
-                            <div className="bg-white/95 backdrop-blur-xl p-4 md:p-6 flex items-center justify-between rounded-3xl border border-white shadow-2xl">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center">
-                                        <Shield className="w-6 h-6 text-emerald-500" />
+                        <div className="absolute bottom-4 left-4 right-4 z-[1001] md:bottom-8 md:left-8 md:right-8">
+                            <div className="bg-white/95 backdrop-blur-xl p-3 md:p-6 flex items-center justify-between rounded-[2rem] md:rounded-3xl border border-white shadow-2xl">
+                                <div className="flex items-center gap-3 md:gap-4">
+                                    <div className="w-10 h-10 md:w-12 md:h-12 bg-emerald-50 rounded-xl md:rounded-2xl flex items-center justify-center">
+                                        <Shield className="w-5 h-5 md:w-6 md:h-6 text-emerald-500" />
                                     </div>
                                     <div>
-                                        <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Encrypted Data Active</p>
-                                        <p className="text-base font-black text-slate-900 flex items-center gap-2">
+                                        <p className="text-[8px] md:text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Encrypted Data Active</p>
+                                        <p className="text-xs md:text-base font-black text-slate-900 flex items-center gap-2">
                                             LIVE SECURE PERIMETER
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2 md:gap-3">
                                     {receivedSignals.length > 0 && (
-                                        <div className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-100 animate-pulse">
-                                            {receivedSignals.length} Active Emergency
+                                        <div className="px-3 py-1.5 md:px-4 md:py-2 bg-red-50 text-red-600 rounded-xl text-[8px] md:text-[10px] font-black uppercase tracking-widest border border-red-100 animate-pulse hidden sm:block">
+                                            {receivedSignals.length} Active
                                         </div>
                                     )}
-                                    <Link href="/safe-route" className="px-6 py-3 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200">
+                                    <Link href="/safe-route" className="px-4 py-2.5 md:px-6 md:py-3 bg-indigo-600 text-white rounded-xl md:rounded-2xl text-[8px] md:text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200">
                                         Navigator AI
                                     </Link>
                                 </div>

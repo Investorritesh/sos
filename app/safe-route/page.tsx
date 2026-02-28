@@ -236,6 +236,15 @@ export default function SafeRoutePage() {
         setSafetyZones(zones);
         drawZones(zones, true);
 
+        // Handle responsive container resizing
+        const resizeObserver = new ResizeObserver(() => {
+            mapInstance.current?.invalidateSize();
+        });
+        if (mapRef.current) {
+            resizeObserver.observe(mapRef.current);
+        }
+
+        return () => resizeObserver.disconnect();
     }, [leafletLoaded, userCoords]);
 
     // ─── Draw safety zones ───────────────────────────────────────────────────

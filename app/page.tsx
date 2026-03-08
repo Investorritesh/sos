@@ -1,18 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import {
-  AlertTriangle,
-  MapPin,
-  Phone,
-  ShieldAlert,
-  Shield,
-  Settings,
-  MessageSquare,
-  Navigation,
-  LayoutDashboard,
-  User
+  AlertTriangle, MapPin, Phone, ShieldAlert, Shield,
+  Navigation, LayoutDashboard, ShieldCheck, Mic, Wifi,
+  Activity, Link2, Cpu, Radio, Zap, ChevronRight
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { toast } from 'react-hot-toast';
@@ -20,372 +13,554 @@ import { AIChat } from '@/components/AIChat';
 import Link from 'next/link';
 import { useAlarm } from '@/hooks/useAlarm';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
-import { Mic, MicOff } from 'lucide-react';
 
+import { ParticleCanvas } from '@/components/ParticleCanvas';
+import { TiltCard } from '@/components/TiltCard';
+
+/* ─── SOS 3D Orb ─── */
+function SOSOrb({
+  isActive, countdown, onActivate, onDeactivate
+}: {
+  isActive: boolean; countdown: number; onActivate: () => void; onDeactivate: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [pressed, setPressedState] = useState(false);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const rX = useSpring(useTransform(y, [-100, 100], [15, -15]), { stiffness: 200, damping: 20 });
+  const rY = useSpring(useTransform(x, [-100, 100], [-15, 15]), { stiffness: 200, damping: 20 });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    x.set(e.clientX - rect.left - rect.width / 2);
+    y.set(e.clientY - rect.top - rect.height / 2);
+  };
+
+  const handleMouseDown = () => {
+    if (isActive) return;
+    setPressedState(true);
+    pressTimer.current = setTimeout(() => onActivate(), 0);
+  };
+
+  const handleMouseUp = () => {
+    setPressedState(false);
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+  };
+
+  return (
+    <div className="flex flex-col items-center">
+      <div style={{ perspective: '1000px' }}>
+        <AnimatePresence>
+          {isActive && (
+            <>
+              {[0, 1, 2].map(i => (
+                <motion.div
+                  key={i}
+                  className="absolute inset-0 rounded-full border-2 border-accent/40"
+                  style={{ margin: -20 }}
+                  initial={{ scale: 1, opacity: 0.6 }}
+                  animate={{ scale: 2.2, opacity: 0 }}
+                  transition={{ duration: 2, repeat: Infinity, delay: i * 0.65, ease: 'easeOut' }}
+                />
+              ))}
+            </>
+          )}
+        </AnimatePresence>
+
+        <motion.div
+          onMouseMove={handleMouseMove}
+          onMouseLeave={() => { x.set(0); y.set(0); setHovered(false); }}
+          onMouseEnter={() => setHovered(true)}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onClick={() => isActive && onDeactivate()}
+          style={{ rotateX: rX, rotateY: rY, transformStyle: 'preserve-3d' }}
+          animate={{
+            scale: pressed ? 0.94 : isActive ? [1, 1.04, 1] : hovered ? 1.05 : 1,
+          }}
+          transition={{ scale: { repeat: isActive ? Infinity : 0, duration: 2 } }}
+          className="relative cursor-pointer"
+        >
+          <div
+            className={`orb-sphere ${isActive ? 'orb-active' : ''}`}
+            style={{
+              background: isActive
+                ? `radial-gradient(circle at 38% 32%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.05) 30%, rgba(244,63,94,0.35) 65%, rgba(220,38,38,0.55) 100%)`
+                : undefined,
+            }}
+          >
+            {/* Inner core glow */}
+            <div className="absolute inset-8 rounded-full flex flex-col items-center justify-center gap-3"
+              style={{ background: isActive ? 'radial-gradient(circle, rgba(244,63,94,0.3) 0%, transparent 70%)' : 'radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%)' }}>
+              <motion.div
+                animate={{ scale: isActive ? [1, 1.2, 1] : 1 }}
+                transition={{ repeat: Infinity, duration: 1.5 }}
+              >
+                <ShieldAlert className={`w-14 h-14 drop-shadow-lg ${isActive ? 'text-accent' : 'text-primary'}`} />
+              </motion.div>
+              <div className="text-center">
+                <span className={`block text-2xl font-bold tracking-widest ${isActive ? 'text-accent' : 'text-white'}`} style={{ textShadow: '0 2px 12px rgba(0,0,0,0.3)' }}>
+                  {countdown > 0 ? countdown : isActive ? 'ACTIVE' : 'SOS'}
+                </span>
+                <span className={`text-[9px] font-bold uppercase tracking-[0.25em] ${isActive ? 'text-accent/70' : 'text-white/60'}`}>
+                  {isActive ? 'Tap to Disarm' : countdown > 0 ? 'Activating...' : 'Hold to Trigger'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Ripple rings when idle */}
+          {!isActive && (
+            <>
+              <div className="orb-ripple" />
+              <div className="orb-ripple" />
+            </>
+          )}
+        </motion.div>
+      </div>
+
+      {/* Ground shadow */}
+      <div className="orb-shadow" />
+    </div>
+  );
+}
+
+/* ─── Dashboard Card ─── */
+const DASHBOARD_CARDS = [
+  { title: 'Live Tracking', desc: 'Encrypted real-time GPS', icon: Navigation, color: 'from-indigo-500 to-violet-600', href: '/map', status: 'Online' },
+  { title: 'AI Threat Scanner', desc: 'Neural threat analysis', icon: Cpu, color: 'from-violet-500 to-purple-600', href: '/threat-scanner', status: 'Scanning' },
+  { title: 'Safe Route AI', desc: 'Optimal path intelligence', icon: Shield, color: 'from-blue-500 to-indigo-600', href: '/safe-route', status: 'Ready' },
+  { title: 'Guardian Network', desc: 'Trusted contacts circle', icon: Phone, color: 'from-emerald-500 to-teal-600', href: '/contacts', status: 'Active' },
+  { title: 'Evidence Log', desc: 'Blockchain incident records', icon: Activity, color: 'from-amber-500 to-orange-600', href: '/incident', status: 'Secured' },
+  { title: 'Secure Link', desc: 'Encrypted communication', icon: Link2, color: 'from-rose-500 to-pink-600', href: '/secure-link', status: 'Encrypted' },
+];
+
+function DashCard({ card }: { card: typeof DASHBOARD_CARDS[0] }) {
+  const Icon = card.icon;
+  return (
+    <Link href={card.href}>
+      <TiltCard className="p-8 h-full group cursor-pointer">
+        <div className="card-content flex flex-col h-full gap-5">
+          <div className="flex items-start justify-between">
+            <div
+              className={`icon-glow p-4 rounded-2xl bg-gradient-to-br ${card.color}`}
+              style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}
+            >
+              <Icon className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest"
+              style={{ background: 'rgba(var(--primary-rgb),0.08)', color: 'var(--primary)', border: '1px solid rgba(var(--primary-rgb),0.15)' }}>
+              <span className="status-dot" />
+              {card.status}
+            </div>
+          </div>
+
+          <div className="flex-1 flex flex-col justify-end gap-1">
+            <h3 className="text-lg font-bold" style={{ color: 'var(--fg)' }}>{card.title}</h3>
+            <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>{card.desc}</p>
+          </div>
+
+          <div className="flex items-center gap-2 text-[11px] font-semibold" style={{ color: 'var(--primary)' }}>
+            Open Module
+            <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+          </div>
+        </div>
+      </TiltCard>
+    </Link>
+  );
+}
+
+/* ─── AI Holographic Section ─── */
+function AISection() {
+  return (
+    <TiltCard className="p-12 relative overflow-hidden">
+      <div className="card-content">
+        <div className="flex flex-col lg:flex-row gap-12 items-center">
+          {/* Holographic Shield */}
+          <div className="relative flex-shrink-0 w-48 h-48 flex items-center justify-center">
+            {/* Safety radius rings */}
+            {[1.2, 1.5, 1.85].map((scale, i) => (
+              <motion.div
+                key={i}
+                className="absolute inset-0 rounded-full border opacity-20"
+                style={{ borderColor: 'var(--primary)', transform: `scale(${scale})` }}
+                animate={{ scale: [scale, scale * 1.06, scale], opacity: [0.2, 0.08, 0.2] }}
+                transition={{ repeat: Infinity, duration: 3, delay: i * 0.7, ease: 'easeInOut' }}
+              />
+            ))}
+
+            {/* Rotating wireframe globe layer */}
+            <motion.div
+              className="absolute inset-0 rounded-full"
+              style={{
+                background: 'conic-gradient(from 0deg, transparent, rgba(var(--primary-rgb),0.15), transparent)',
+                border: '1px solid rgba(var(--primary-rgb),0.15)'
+              }}
+              animate={{ rotate: 360 }}
+              transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
+            />
+
+            {/* Core shield */}
+            <motion.div
+              animate={{ rotateY: [0, 20, 0, -20, 0] }}
+              transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+              style={{ transformStyle: 'preserve-3d' }}
+            >
+              <ShieldCheck
+                className="w-24 h-24"
+                style={{
+                  color: 'var(--primary)',
+                  filter: 'drop-shadow(0 0 20px rgba(var(--primary-rgb),0.8))',
+                }}
+              />
+            </motion.div>
+
+            {/* Particle orbit dots */}
+            {[0, 60, 120, 180, 240, 300].map((deg, i) => (
+              <motion.div
+                key={i}
+                className="absolute w-1.5 h-1.5 rounded-full"
+                style={{
+                  background: 'var(--primary)',
+                  boxShadow: '0 0 6px rgba(var(--primary-rgb),0.8)',
+                  top: '50%',
+                  left: '50%',
+                }}
+                animate={{
+                  x: Math.cos((deg * Math.PI) / 180) * 90 * [1, -1, 1][i % 3],
+                  y: Math.sin((deg * Math.PI) / 180) * 90,
+                  opacity: [0.4, 1, 0.4],
+                }}
+                transition={{ duration: 3, repeat: Infinity, delay: i * 0.5, ease: 'easeInOut' }}
+              />
+            ))}
+          </div>
+
+          {/* Text + features */}
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-6">
+              <span className="px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest"
+                style={{ background: 'rgba(var(--primary-rgb),0.1)', color: 'var(--primary)', border: '1px solid rgba(var(--primary-rgb),0.2)' }}>
+                <Zap className="inline w-3 h-3 mr-1.5" /> Powered by AI
+              </span>
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: 'var(--fg)' }}>
+              Predictive Security <span className="text-gradient">Intelligence</span>
+            </h2>
+            <p className="mb-8" style={{ color: 'var(--fg-muted)', fontSize: '15px', lineHeight: '1.7' }}>
+              Neural threat detection learns and adapts in real-time, providing military-grade situational awareness across your personal safety perimeter.
+            </p>
+
+            <div className="grid grid-cols-2 gap-6">
+              {[
+                { icon: MapPin, label: 'Zone Threat Analysis', value: '99.2%' },
+                { icon: Mic, label: 'Voice Guard Active', value: 'Armed' },
+                { icon: Radio, label: 'Signal Broadcast Range', value: '5km' },
+                { icon: Wifi, label: 'Network Reliability', value: '7-Sigma' },
+              ].map(({ icon: Icon, label, value }) => (
+                <div key={label} className="flex items-center gap-4">
+                  <div className="p-3 rounded-xl flex-shrink-0"
+                    style={{ background: 'rgba(var(--primary-rgb),0.08)', border: '1px solid rgba(var(--primary-rgb),0.12)' }}>
+                    <Icon className="w-4 h-4" style={{ color: 'var(--primary)' }} />
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium" style={{ color: 'var(--fg-muted)' }}>{label}</div>
+                    <div className="text-sm font-bold" style={{ color: 'var(--fg)' }}>{value}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </TiltCard>
+  );
+}
+
+/* ─── Status Bar ─── */
+function StatusBar({ batteryLevel, shakeEnabled, onShakeToggle }: { batteryLevel: number | null; shakeEnabled: boolean; onShakeToggle: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex justify-center mb-20"
+    >
+      <div
+        className="flex items-center gap-6 px-8 py-3 rounded-full"
+        style={{ background: 'var(--glass)', border: '1px solid var(--glass-border)', backdropFilter: 'blur(20px)', boxShadow: 'var(--shadow-card)' }}
+      >
+        {/* Signal */}
+        <div className="flex items-center gap-2.5">
+          <div className="flex gap-0.5 items-end h-3.5">
+            {[3, 5, 7, 9, 11].map((h, i) => (
+              <div key={i} className="w-0.5 rounded-full transition-all"
+                style={{ height: `${h}px`, background: i < 4 ? 'var(--primary)' : 'rgba(var(--fg-muted))' }} />
+            ))}
+          </div>
+          <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--fg-muted)' }}>Secured</span>
+        </div>
+
+        <div style={{ width: '1px', height: '16px', background: 'var(--glass-border)' }} />
+
+        {/* Battery */}
+        <div className="flex items-center gap-2.5">
+          <div className="relative flex items-center gap-0.5">
+            <div className="w-7 h-3.5 rounded border" style={{ borderColor: batteryLevel !== null && batteryLevel < 20 ? 'var(--accent)' : 'rgba(var(--fg-muted))', padding: '2px' }}>
+              <div className="h-full rounded-sm transition-all duration-1000"
+                style={{ width: `${batteryLevel ?? 100}%`, background: batteryLevel !== null && batteryLevel < 20 ? 'var(--accent)' : '#22c55e' }} />
+            </div>
+            <div className="w-0.5 h-2 rounded-r" style={{ background: 'rgba(var(--fg-muted))' }} />
+          </div>
+          <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--fg-muted)' }}>
+            {batteryLevel !== null ? `${batteryLevel}%` : '100%'}
+          </span>
+        </div>
+
+        <div style={{ width: '1px', height: '16px', background: 'var(--glass-border)' }} />
+
+        {/* Shake toggle */}
+        <button onClick={onShakeToggle} className="flex items-center gap-2.5 group">
+          <div className="relative w-9 h-5 rounded-full transition-all duration-300 cursor-pointer"
+            style={{ background: shakeEnabled ? 'var(--primary)' : 'rgba(var(--fg-muted), 0.2)', boxShadow: shakeEnabled ? '0 0 12px rgba(var(--primary-rgb),0.4)' : 'none' }}>
+            <motion.div
+              animate={{ x: shakeEnabled ? 16 : 2 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-md"
+            />
+          </div>
+          <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--fg-muted)' }}>
+            Shake {shakeEnabled ? 'On' : 'Off'}
+          </span>
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   HOME PAGE
+═══════════════════════════════════════════════════ */
 export default function Home() {
   const [isSOSActive, setIsSOSActive] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [activeSOSId, setActiveSOSId] = useState<string | null>(null);
   const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
   const { startAlarm, stopAlarm } = useAlarm();
-  const { startRecording, stopRecording, isRecording } = useAudioRecorder();
+  const { startRecording, stopRecording } = useAudioRecorder();
   const [shakeEnabled, setShakeEnabled] = useState(false);
   const lastShake = useRef(0);
 
   useEffect(() => {
-    if (isSOSActive) {
-      startAlarm();
-      startRecording();
-    } else {
-      stopAlarm();
-      stopRecording();
-    }
+    isSOSActive ? (startAlarm(), startRecording()) : (stopAlarm(), stopRecording());
   }, [isSOSActive, startAlarm, stopAlarm, startRecording, stopRecording]);
 
-
   useEffect(() => {
-    // Battery Status API
     if ('getBattery' in (navigator as any)) {
-      (navigator as any).getBattery().then((battery: any) => {
-        setBatteryLevel(Math.round(battery.level * 100));
-        battery.addEventListener('levelchange', () => {
-          setBatteryLevel(Math.round(battery.level * 100));
-        });
+      (navigator as any).getBattery().then((bat: any) => {
+        setBatteryLevel(Math.round(bat.level * 100));
+        bat.addEventListener('levelchange', () => setBatteryLevel(Math.round(bat.level * 100)));
       });
     }
-
-    // Check if there's an active SOS on mount
-    fetch('/api/sos')
-      .then(res => res.json())
-      .then(data => {
-        if (data?._id) {
-          setIsSOSActive(true);
-          setActiveSOSId(data._id);
-        }
-      });
+    fetch('/api/sos').then(r => r.json()).then(d => {
+      if (d?._id) { setIsSOSActive(true); setActiveSOSId(d._id); }
+    }).catch(() => { });
   }, []);
 
-  const handleSOS = useCallback(async () => {
-    if (isSOSActive) {
-      // Stop alarm immediately with suppression
-      stopAlarm(10000);
-      setIsSOSActive(false);
-
-      // If we don't have a server-side SOS ID, just deactivate locally
-      if (!activeSOSId) {
-        toast.success('SOS DEACTIVATED');
-        return;
-      }
-
-      try {
-        const res = await fetch('/api/sos', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: activeSOSId }),
-        });
-        if (res.ok) {
-          setActiveSOSId(null);
-          toast.success('SOS DEACTIVATED');
-        } else {
-          // Server failed but we already stopped locally — just clear the ID
-          setActiveSOSId(null);
-          toast.success('SOS DEACTIVATED (Local)');
-        }
-      } catch (error) {
-        // Network error — still deactivated locally
-        setActiveSOSId(null);
-        toast.success('SOS DEACTIVATED (Offline)');
-      }
-    } else {
-      // Prevent activating during countdown
-      if (countdown > 0) return;
-      setCountdown(3);
-      const timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            startEmergency();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-  }, [isSOSActive, activeSOSId, countdown, stopAlarm, startAlarm]);
-
-  const startEmergency = async () => {
+  const startEmergency = useCallback(async () => {
     let location = { lat: 0, lng: 0, address: 'Live Coordinates' };
-
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(async (pos) => {
-        location = { lat: pos.coords.latitude, lng: pos.coords.longitude, address: 'Live Coordinates' };
-        await triggerSOS(location);
-      }, async () => {
-        await triggerSOS(location);
-      });
-    } else {
-      await triggerSOS(location);
-    }
-  };
-
-  const triggerSOS = async (location: { lat: number, lng: number, address: string }) => {
-    // Start alarm INSTANTLY when trigger is called
+    const geo = () => new Promise<void>(resolve => {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          location = { lat: pos.coords.latitude, lng: pos.coords.longitude, address: 'Live Coordinates' };
+          resolve();
+        }, () => resolve());
+      } else resolve();
+    });
+    await geo();
     startAlarm();
     setIsSOSActive(true);
-
     try {
       const res = await fetch('/api/sos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location,
-          triggerType: 'Manual',
-          batteryLevel: batteryLevel,
-        }),
+        body: JSON.stringify({ location, triggerType: 'Manual', batteryLevel }),
       });
-      const data = await res.json();
       if (res.ok) {
+        const data = await res.json();
         setActiveSOSId(data._id);
-        toast.error('EMERGENCY SIGNAL SENT!', {
-          duration: 5000,
-          icon: '🚨',
-        });
-      } else {
-        // Handle failure if necessary, but keep alarm going locally
-        console.error('SOS fetch fail');
+        toast.error('🚨 EMERGENCY SIGNAL SENT!', { duration: 6000 });
       }
-    } catch (error) {
-      toast.error('Local Alarm Active - Network Error');
-    }
-  };
+    } catch { toast.error('🚨 Local Alarm Active'); }
+  }, [batteryLevel, startAlarm]);
 
-  // Shake Detection Protocol
-  const handleMotion = useCallback((event: DeviceMotionEvent) => {
+  const handleActivate = useCallback(() => {
+    if (countdown > 0) return;
+    setCountdown(3);
+    let c = 3;
+    const t = setInterval(() => {
+      c--;
+      setCountdown(c);
+      if (c <= 0) { clearInterval(t); startEmergency(); }
+    }, 1000);
+  }, [countdown, startEmergency]);
+
+  const handleDeactivate = useCallback(async () => {
+    stopAlarm(10000);
+    setIsSOSActive(false);
+    if (!activeSOSId) { toast.success('SOS Deactivated'); return; }
+    try {
+      await fetch('/api/sos', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: activeSOSId }),
+      });
+      setActiveSOSId(null);
+      toast.success('SOS Deactivated');
+    } catch {
+      setActiveSOSId(null);
+      toast.success('SOS Deactivated (Offline)');
+    }
+  }, [activeSOSId, stopAlarm]);
+
+  const handleMotion = useCallback((e: DeviceMotionEvent) => {
     if (!shakeEnabled || isSOSActive) return;
-
-    const acc = event.accelerationIncludingGravity;
+    const acc = e.accelerationIncludingGravity;
     if (!acc) return;
-
-    const threshold = 15;
-    const delta = Math.sqrt((acc.x || 0) ** 2 + (acc.y || 0) ** 2 + (acc.z || 0) ** 2);
-
-    if (delta > threshold) {
+    const d = Math.sqrt((acc.x ?? 0) ** 2 + (acc.y ?? 0) ** 2 + (acc.z ?? 0) ** 2);
+    if (d > 15) {
       const now = Date.now();
-      if (now - lastShake.current > 2000) {
-        lastShake.current = now;
-        toast.error('TACTICAL SHAKE DETECTED - TRIGGERING SOS', {
-          duration: 4000,
-          icon: '📳',
-          style: { borderRadius: '1rem', background: '#ef4444', color: '#fff', fontWeight: 'bold' }
-        });
-        handleSOS();
-      }
+      if (now - lastShake.current > 2000) { lastShake.current = now; handleActivate(); }
     }
-  }, [shakeEnabled, isSOSActive, handleSOS]);
+  }, [shakeEnabled, isSOSActive, handleActivate]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.DeviceMotionEvent) {
-      window.addEventListener('devicemotion', handleMotion as any);
-    }
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('devicemotion', handleMotion as any);
-      }
-    };
+    window.addEventListener('devicemotion', handleMotion as any);
+    return () => window.removeEventListener('devicemotion', handleMotion as any);
   }, [handleMotion]);
 
-  return (
-    <main className="pt-24 pb-32 px-6 min-h-screen relative overflow-hidden bg-slate-50/50">
-      {/* Premium Background Pattern */}
-      <div className="absolute inset-0 z-[-1] opacity-30 pointer-events-none">
-        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:32px_32px]" />
-      </div>
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+  };
 
-      {/* Pass polling frequency to Navbar */}
+  const itemVariants = {
+    hidden: { opacity: 0, y: 40 },
+    visible: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 260, damping: 22 } },
+  };
+
+  return (
+    <main className="relative min-h-screen pb-32 overflow-hidden">
+      {/* Particle layer */}
+      <ParticleCanvas />
+
       <Navbar pollingFrequency={5000} />
 
-      <div className="max-w-7xl mx-auto flex flex-col items-center">
-        {/* Signal & Battery Status Bar */}
-        <div className="w-full max-w-2xl flex justify-between items-center mb-12 bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
-          <div className="flex items-center gap-4">
-            <div className="flex gap-1 items-end h-4">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className={`w-1 rounded-full ${i < 3 ? 'h-full bg-primary' : 'h-2 bg-slate-100'}`} />
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black tracking-widest text-slate-500 uppercase">Secure Link: Active</span>
-              {isRecording && (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-red-50 text-red-500 rounded-md animate-pulse">
-                  <Mic className="w-2.5 h-2.5" />
-                  <span className="text-[8px] font-black uppercase tracking-tighter text-red-600">Digital Witness Active</span>
-                </div>
-              )}
-            </div>
-          </div>
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 pt-24 md:pt-32"
+      >
+        {/* Status Bar */}
+        <motion.div variants={itemVariants}>
+          <StatusBar
+            batteryLevel={batteryLevel}
+            shakeEnabled={shakeEnabled}
+            onShakeToggle={() => {
+              setShakeEnabled(v => !v);
+              toast.success(!shakeEnabled ? 'Shake Guard Armed 🛡️' : 'Shake Guard Disarmed');
+            }}
+          />
+        </motion.div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                setShakeEnabled(!shakeEnabled);
-                toast.success(shakeEnabled ? 'SHAKE PROTOCOL DISENGAGED' : 'SHAKE PROTOCOL ARMED', {
-                  icon: shakeEnabled ? '🔓' : '🔒',
-                  style: { borderRadius: '1rem', background: '#333', color: '#fff', fontSize: '10px', fontWeight: 'bold' }
-                });
-              }}
-              className={`px-3 py-1.5 rounded-xl border text-[8px] font-black uppercase tracking-widest transition-all ${shakeEnabled ? 'bg-primary/10 border-primary text-primary' : 'bg-slate-50 border-slate-100 text-slate-400'
-                }`}
-            >
-              Shake: {shakeEnabled ? 'ARMED' : 'OFF'}
-            </button>
-            <span className={`text-[10px] font-black tracking-widest ${batteryLevel !== null && batteryLevel < 20 ? 'text-red-500' : 'text-slate-400'}`}>
-              {batteryLevel !== null ? `${batteryLevel}% ENERGY` : 'SYSTEM OK'}
-            </span>
-            <div className="w-10 h-5 border border-slate-200 rounded-md p-0.5 relative">
-              <div
-                className={`h-full rounded-sm transition-all ${batteryLevel !== null && batteryLevel < 20 ? 'bg-red-500' : 'bg-green-500'
-                  }`}
-                style={{ width: `${batteryLevel || 100}%` }}
-              />
-              <div className="absolute -right-1 top-1.5 w-1 h-2 bg-slate-200 rounded-r-sm" />
-            </div>
-          </div>
-        </div>
-
-        {/* Hero Section */}
-        <div className="w-full flex flex-col items-center justify-center py-6">
+        {/* Hero Typography */}
+        <motion.div variants={itemVariants} className="text-center mb-28">
           <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="text-center mb-16"
+            className="inline-flex items-center gap-2 px-5 py-2 rounded-full mb-8 text-[10px] font-bold uppercase tracking-widest"
+            style={{ background: 'rgba(var(--primary-rgb),0.08)', border: '1px solid rgba(var(--primary-rgb),0.15)', color: 'var(--primary)' }}
           >
-            <h1 className="text-4xl md:text-7xl font-black mb-6 tracking-tight text-slate-900 leading-[1.1]">
-              TOTAL SAFETY. <br />
-              <span className="text-primary italic font-extrabold uppercase tracking-tighter">Professionally Armored.</span>
-            </h1>
-            <p className="text-slate-500 max-w-lg mx-auto text-lg font-medium leading-relaxed">
-              Your elite digital guardian. Advanced emergency response and real-time protection at your fingertips.
-            </p>
+            <span className="status-dot" />
+            Protection System Online
           </motion.div>
 
-          <div className="relative mb-20">
-            <AnimatePresence>
-              {countdown > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.5 }}
-                  animate={{ opacity: 1, scale: 1.2 }}
-                  exit={{ opacity: 0, scale: 2 }}
-                  className="absolute inset-0 flex items-center justify-center z-10 text-9xl font-black text-slate-900 pointer-events-none"
-                >
-                  {countdown}
-                </motion.div>
-              )}
-            </AnimatePresence>
+          <h1 className="text-6xl md:text-8xl lg:text-9xl font-bold tracking-tight mb-6 leading-[0.95]"
+            style={{ color: 'var(--fg)', letterSpacing: '-0.03em' }}>
+            Total Safety.
+          </h1>
+          <h1 className="text-6xl md:text-8xl lg:text-9xl font-bold tracking-tight mb-8 leading-[0.95]"
+            style={{ letterSpacing: '-0.03em' }}>
+            <span className="text-gradient">Intelligently Armored.</span>
+          </h1>
+          <p className="text-xl md:text-2xl max-w-2xl mx-auto font-light leading-relaxed"
+            style={{ color: 'var(--fg-muted)' }}>
+            Military-grade AI protection, woven seamlessly into your everyday life.
+          </p>
+        </motion.div>
 
-            <button
-              onClick={handleSOS}
-              className={`
-                relative w-64 h-64 rounded-full flex flex-col items-center justify-center gap-3
-                transition-all duration-500 group shadow-2xl overflow-hidden
-                ${isSOSActive
-                  ? 'bg-white border-4 border-red-500 shadow-red-100'
-                  : 'bg-red-500 hover:bg-red-600 scale-100 hover:scale-105'}
-              `}
-            >
-              <div className={`absolute inset-0 bg-red-600 opacity-0 group-hover:opacity-10 transition-opacity ${isSOSActive ? 'hidden' : ''}`} />
+        {/* SOS Orb */}
+        <motion.div variants={itemVariants} className="flex flex-col items-center mb-32">
+          <SOSOrb
+            isActive={isSOSActive}
+            countdown={countdown}
+            onActivate={handleActivate}
+            onDeactivate={handleDeactivate}
+          />
+          <motion.p
+            animate={{ opacity: [0.4, 0.8, 0.4] }}
+            transition={{ repeat: Infinity, duration: 3 }}
+            className="mt-8 text-[11px] font-bold uppercase tracking-[0.3em]"
+            style={{ color: 'var(--fg-muted)' }}
+          >
+            {isSOSActive ? 'Signal broadcasting — tap orb to disarm' : 'Hold orb to trigger — 3 second arm delay'}
+          </motion.p>
+        </motion.div>
 
-              <div className={`
-                p-6 rounded-full transition-all duration-500
-                ${isSOSActive ? 'bg-red-500 text-white shadow-xl' : 'bg-white/20 text-white'}
-              `}>
-                <ShieldAlert className={`w-16 h-16 ${isSOSActive ? 'animate-pulse' : ''}`} />
-              </div>
-
-              <div className="text-center z-10 px-4">
-                <span className={`
-                  block text-2xl font-black uppercase tracking-widest leading-none
-                  ${isSOSActive ? 'text-red-500' : 'text-white'}
-                `}>
-                  {isSOSActive ? 'ACTIVE' : 'SOS'}
-                </span>
-                <span className={`
-                  block text-[10px] font-bold uppercase tracking-[0.2em] mt-1
-                  ${isSOSActive ? 'text-red-400' : 'text-red-100'}
-                `}>
-                  {isSOSActive ? 'Deactivate' : 'Hold to Alert'}
-                </span>
-              </div>
-
-              {!isSOSActive && <div className="absolute inset-0 sos-pulse rounded-full pointer-events-none" />}
-            </button>
+        {/* Dashboard Grid */}
+        <motion.div variants={itemVariants} className="mb-16">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-bold" style={{ color: 'var(--fg)' }}>Security Modules</h2>
+            <span className="text-[10px] font-bold uppercase tracking-widest px-4 py-2 rounded-full"
+              style={{ background: 'rgba(var(--primary-rgb),0.08)', color: 'var(--primary)', border: '1px solid rgba(var(--primary-rgb),0.12)' }}>
+              6 Active
+            </span>
           </div>
-        </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" style={{ perspective: '1200px' }}>
+            {DASHBOARD_CARDS.map((card, i) => (
+              <motion.div
+                key={card.title}
+                variants={itemVariants}
+                custom={i}
+              >
+                <DashCard card={card} />
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
 
-        {/* Action Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 w-full max-w-6xl mt-8">
-          <Link href="/map" className="contents">
-            <ActionCard
-              icon={<Navigation className="text-indigo-600" />}
-              label="Live Track"
-              sub="Secure Path"
-            />
-          </Link>
-          <Link href="/contacts" className="contents">
-            <ActionCard
-              icon={<Phone className="text-emerald-500" />}
-              label="Guardians"
-              sub="Trusted Net"
-            />
-          </Link>
-          <Link href="/incident" className="contents">
-            <ActionCard
-              icon={<AlertTriangle className="text-amber-500" />}
-              label="Incident"
-              sub="Evidence Log"
-            />
-          </Link>
-          <Link href="/safe-route" className="contents">
-            <ActionCard
-              icon={<Shield className="text-indigo-600" />}
-              label="Safe Path"
-              sub="AI Navigator"
-            />
-          </Link>
-        </div>
-      </div>
+        {/* AI Holographic Section */}
+        <motion.div variants={itemVariants} className="mb-16" style={{ perspective: '1200px' }}>
+          <AISection />
+        </motion.div>
+
+        {/* Bottom CTA strip */}
+        <motion.div variants={itemVariants}>
+          <div className="glass-card p-8 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden">
+            <div className="absolute inset-0 pointer-events-none"
+              style={{ background: 'linear-gradient(135deg, rgba(var(--primary-rgb),0.04) 0%, transparent 60%)' }} />
+            <div className="relative card-content">
+              <h3 className="text-xl font-bold mb-1" style={{ color: 'var(--fg)' }}>Ready to expand your Guardian Network?</h3>
+              <p className="text-sm" style={{ color: 'var(--fg-muted)' }}>Add trusted contacts who can receive your SOS alerts in seconds.</p>
+            </div>
+            <Link href="/contacts" className="btn-liquid rounded-2xl px-8 py-4 text-sm font-semibold flex items-center gap-2 flex-shrink-0 relative card-content">
+              Manage Contacts <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </motion.div>
+      </motion.div>
 
       <AIChat />
-
-      {/* Mobile Nav */}
-      <div className="md:hidden fixed bottom-6 left-6 right-6 z-50">
-        <div className="bg-white/95 backdrop-blur-2xl border border-slate-200 rounded-[2.5rem] px-8 py-5 flex justify-between items-center shadow-2xl ring-1 ring-black/5">
-          <Link href="/" className="text-primary"><LayoutDashboard className="w-6 h-6" /></Link>
-          <Link href="/map" className="text-slate-400 hover:text-primary transition-colors"><MapPin className="w-6 h-6" /></Link>
-          <button onClick={handleSOS} className="w-14 h-14 bg-red-500 rounded-full flex items-center justify-center -mt-12 border-4 border-white shadow-xl shadow-red-100 ring-2 ring-red-500/10">
-            <ShieldAlert className="w-7 h-7 text-white" />
-          </button>
-          <Link href="/chat" className="text-slate-400 hover:text-primary transition-colors"><MessageSquare className="w-6 h-6" /></Link>
-          <Link href="/profile" className="text-slate-400 hover:text-primary transition-colors"><User className="w-6 h-6" /></Link>
-        </div>
-      </div>
     </main>
-  );
-}
-
-function ActionCard({ icon, label, sub }: { icon: React.ReactNode, label: string, sub: string }) {
-  return (
-    <motion.div
-      whileHover={{ y: -5 }}
-      whileTap={{ scale: 0.98 }}
-      className="p-5 md:p-8 flex flex-col gap-4 md:gap-6 cursor-pointer bg-white border border-slate-100 rounded-[2rem] shadow-sm hover:shadow-2xl hover:border-indigo-100 group transition-all duration-500"
-    >
-      <div className="p-4 bg-slate-50 rounded-2xl w-fit group-hover:bg-indigo-50 transition-colors duration-500">
-        {icon}
-      </div>
-      <div>
-        <h3 className="text-xl font-black text-slate-800 tracking-tight leading-none group-hover:text-primary transition-colors duration-500">{label}</h3>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">{sub}</p>
-      </div>
-    </motion.div>
   );
 }

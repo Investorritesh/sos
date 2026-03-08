@@ -69,149 +69,156 @@ export const AIChat = () => {
 
     return (
         <>
-            {/* Floating Trigger Button */}
-            <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setIsOpen(true)}
-                className="fixed bottom-24 right-8 p-5 bg-slate-900 text-white rounded-full shadow-2xl shadow-indigo-200/60 z-40 border-4 border-white group"
-                aria-label="Open GuardianAI"
+            <motion.div
+                initial={{ x: '100%' }}
+                animate={{ x: isOpen ? '100%' : 0 }}
+                className="fixed top-1/2 right-0 -translate-y-1/2 z-40 flex items-center"
             >
-                <div className="relative">
-                    <MessageSquare className="w-7 h-7" />
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full animate-pulse border-2 border-slate-900" />
-                </div>
-            </motion.button>
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsOpen(true)}
+                    className="p-4 bg-background/60 backdrop-blur-3xl border border-r-0 border-white/20 rounded-l-3xl shadow-[-10px_0_30px_rgba(0,0,0,0.3)] group hover:bg-primary/20 transition-all flex items-center gap-3"
+                    aria-label="Open GuardianAI"
+                >
+                    <div className="relative">
+                        <MessageSquare className="w-5 h-5 text-primary group-hover:text-white transition-colors" />
+                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_10px_#4ade80]" />
+                    </div>
+                </motion.button>
+            </motion.div>
 
             <AnimatePresence>
                 {isOpen && (
                     <>
-                        {/* Backdrop */}
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/10 backdrop-blur-sm z-[99] md:hidden"
+                            className="fixed inset-0 bg-background/20 backdrop-blur-sm z-[99]"
                             onClick={() => setIsOpen(false)}
                         />
 
-                        {/* Chat Window */}
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.92, y: 40 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.92, y: 40 }}
+                            initial={{ opacity: 0, x: 100, scale: 0.9 }}
+                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                            exit={{ opacity: 0, x: 100, scale: 0.9 }}
                             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                            className="fixed bottom-6 right-6 md:bottom-24 md:right-8 w-[calc(100vw-3rem)] max-w-[400px] h-[85vh] md:h-[620px] bg-white z-[100] flex flex-col shadow-[0_32px_128px_rgba(0,0,0,0.15)] rounded-[2.5rem] border border-slate-100 overflow-hidden"
+                            className="fixed top-1/2 right-8 -translate-y-1/2 w-[calc(100vw-3rem)] max-w-[450px] h-[75vh] glass-card z-[100] flex flex-col shadow-[0_50px_100px_rgba(0,0,0,0.7)] overflow-hidden rounded-[3rem] border border-white/10 group/terminal"
                         >
-                            {/* Header */}
-                            <div className="px-8 py-6 bg-slate-900 text-white flex justify-between items-center flex-shrink-0">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-2.5 bg-white/10 rounded-xl">
+                            {/* Neural Scan Line Animation */}
+                            <motion.div
+                                className="absolute left-0 right-0 h-px bg-primary/40 z-50 pointer-events-none"
+                                animate={{ top: ['0%', '100%', '0%'] }}
+                                transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+                            />
+
+                            <div className="px-10 py-8 bg-primary/95 text-white flex justify-between items-center flex-shrink-0 relative overflow-hidden ring-1 ring-white/20">
+                                <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/80 to-primary/60" />
+                                <div className="absolute inset-x-0 bottom-0 h-px bg-white/20" />
+                                <div className="relative flex items-center gap-5">
+                                    <div className="p-3.5 bg-white/10 rounded-2xl border border-white/20 shadow-2xl">
                                         <ShieldCheck className="w-6 h-6 text-white" />
                                     </div>
                                     <div>
-                                        <h3 className="font-black tracking-tight leading-none text-lg">GuardianAI</h3>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pollinations Neural Link Active</span>
+                                        <h3 className="font-black tracking-tighter text-xl uppercase leading-none mb-1.5">GuardianAI</h3>
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_10px_#4ade80]" />
+                                            <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em]">Neural Interface v4.0</span>
                                         </div>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => setIsOpen(false)}
-                                    className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl transition-colors"
-                                    aria-label="Close"
+                                    className="relative p-3 rounded-2xl hover:bg-white/10 transition-all active:scale-95 group"
                                 >
-                                    <X className="w-5 h-5" />
+                                    <X className="w-5 h-5 group-hover:rotate-90 transition-transform" />
                                 </button>
                             </div>
 
-                            {/* Quick Actions */}
-                            {messages.length <= 1 && (
-                                <div className="px-5 pt-4 pb-2 flex-shrink-0 border-b border-slate-50">
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">Quick Actions</p>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {QUICK_ACTIONS.map((action) => (
-                                            <button
-                                                key={action.label}
-                                                onClick={() => handleQuickAction(action.prompt)}
-                                                className="flex items-center gap-2 p-3 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-100 border border-slate-100 rounded-2xl text-[10px] font-black text-slate-600 hover:text-primary transition-all text-left group"
-                                            >
-                                                <span className="text-primary group-hover:scale-110 transition-transform">{action.icon}</span>
-                                                {action.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Messages */}
-                            <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 scroll-smooth">
-                                {messages.map((msg, i) => (
-                                    <motion.div
-                                        key={i}
-                                        initial={{ opacity: 0, y: 8 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                                    >
-                                        {msg.role === 'assistant' && (
-                                            <div className="w-7 h-7 bg-slate-900 rounded-xl flex items-center justify-center mr-2 flex-shrink-0 mt-1">
-                                                <Zap className="w-3.5 h-3.5 text-white" />
+                            <div className="flex-1 flex flex-col min-h-0 bg-white/5">
+                                <div ref={scrollRef} className="flex-1 overflow-y-auto px-10 py-8 space-y-8 scroll-smooth custom-scrollbar">
+                                    {messages.length <= 1 && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            className="space-y-6 pt-4"
+                                        >
+                                            <p className="text-[10px] font-black text-foreground/30 uppercase tracking-[0.4em] ml-2">Priority Protocols</p>
+                                            <div className="grid grid-cols-1 gap-4">
+                                                {QUICK_ACTIONS.map((action, i) => (
+                                                    <motion.button
+                                                        initial={{ opacity: 0, x: -20 }}
+                                                        animate={{ opacity: 1, x: 0 }}
+                                                        transition={{ delay: i * 0.1 }}
+                                                        key={action.label}
+                                                        onClick={() => handleQuickAction(action.prompt)}
+                                                        className="flex items-center gap-5 p-5 bg-white/5 hover:bg-primary/5 border border-white/5 hover:border-primary/20 rounded-[2rem] transition-all text-left group"
+                                                    >
+                                                        <div className="p-3 bg-primary/10 rounded-2xl text-primary group-hover:scale-110 transition-transform">
+                                                            {action.icon}
+                                                        </div>
+                                                        <span className="text-[11px] font-black text-foreground/70 uppercase tracking-widest group-hover:text-primary transition-colors">{action.label}</span>
+                                                    </motion.button>
+                                                ))}
                                             </div>
-                                        )}
-                                        <div className={`max-w-[82%] px-5 py-4 text-sm leading-relaxed font-medium ${msg.role === 'user'
-                                                ? 'bg-slate-900 text-white rounded-[1.5rem] rounded-tr-sm shadow-xl'
-                                                : 'bg-slate-50 text-slate-700 rounded-[1.5rem] rounded-tl-sm border border-slate-100'
-                                            }`}>
-                                            {msg.content}
-                                        </div>
-                                    </motion.div>
-                                ))}
+                                        </motion.div>
+                                    )}
 
-                                {/* Typing Indicator */}
-                                {loading && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 8 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        className="flex justify-start items-end gap-2"
-                                    >
-                                        <div className="w-7 h-7 bg-slate-900 rounded-xl flex items-center justify-center flex-shrink-0">
-                                            <Zap className="w-3.5 h-3.5 text-white animate-pulse" />
-                                        </div>
-                                        <div className="bg-slate-50 border border-slate-100 rounded-[1.5rem] rounded-tl-sm px-5 py-4 flex gap-1.5">
-                                            <span className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" />
-                                            <span className="w-2 h-2 bg-slate-300 rounded-full animate-bounce [animation-delay:0.15s]" />
-                                            <span className="w-2 h-2 bg-slate-300 rounded-full animate-bounce [animation-delay:0.3s]" />
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </div>
+                                    {messages.map((msg, i) => (
+                                        <motion.div
+                                            key={i}
+                                            initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                        >
+                                            <div className={`relative max-w-[85%] px-7 py-5 text-[13px] leading-relaxed font-bold tracking-tight shadow-xl ${msg.role === 'user'
+                                                ? 'bg-primary text-white rounded-[2rem] rounded-tr-lg border border-white/20 shadow-primary/30'
+                                                : 'bg-white/5 backdrop-blur-2xl text-foreground rounded-[2rem] rounded-tl-lg border border-white/10 shadow-black/20'
+                                                }`}>
+                                                {msg.role === 'assistant' && (
+                                                    <div className="absolute -left-12 top-0 pointer-events-none opacity-20 group-hover/terminal:opacity-100 transition-opacity">
+                                                        <ShieldCheck className="w-8 h-8 text-primary" />
+                                                    </div>
+                                                )}
+                                                {msg.content}
+                                            </div>
+                                        </motion.div>
+                                    ))}
 
-                            {/* Input */}
-                            <div className="p-5 border-t border-slate-100 bg-white flex-shrink-0">
-                                <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-2xl px-5 py-3 focus-within:bg-white focus-within:border-primary focus-within:ring-4 focus-within:ring-indigo-50 transition-all">
-                                    <input
-                                        ref={inputRef}
-                                        type="text"
-                                        placeholder="Ask GuardianAI..."
-                                        className="flex-1 bg-transparent outline-none text-sm font-medium text-slate-700 placeholder:text-slate-300"
-                                        value={input}
-                                        onChange={(e) => setInput(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                                        disabled={loading}
-                                    />
-                                    <button
-                                        onClick={handleSend}
-                                        disabled={!input.trim() || loading}
-                                        className="w-9 h-9 bg-slate-900 text-white rounded-xl flex items-center justify-center disabled:bg-slate-100 disabled:text-slate-300 transition-all hover:bg-primary active:scale-95 flex-shrink-0"
-                                        aria-label="Send"
-                                    >
-                                        <Send className="w-4 h-4" />
-                                    </button>
+                                    {loading && (
+                                        <div className="flex justify-start">
+                                            <div className="bg-white/5 backdrop-blur-3xl rounded-[2rem] px-8 py-5 flex gap-2 border border-white/5">
+                                                <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" />
+                                                <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce [animation-delay:0.2s]" />
+                                                <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce [animation-delay:0.4s]" />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                <p className="text-center text-[9px] text-slate-300 font-bold uppercase tracking-widest mt-3">
-                                    Powered by Pollinations Neural AI · No API Key Required
-                                </p>
+
+                                <div className="p-8 bg-background/50 backdrop-blur-3xl border-t border-white/10">
+                                    <div className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-[2rem] px-6 py-4 focus-within:ring-4 focus-within:ring-primary/10 hover:border-primary/20 transition-all group">
+                                        <input
+                                            ref={inputRef}
+                                            type="text"
+                                            placeholder="Transmit intelligence..."
+                                            className="flex-1 bg-transparent outline-none text-[13px] font-bold text-foreground placeholder:text-foreground/20"
+                                            value={input}
+                                            onChange={(e) => setInput(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                                            disabled={loading}
+                                        />
+                                        <button
+                                            onClick={handleSend}
+                                            disabled={!input.trim() || loading}
+                                            className="btn-liquid rounded-2xl w-12 h-12 flex items-center justify-center disabled:opacity-20 shadow-lg shadow-primary/20"
+                                        >
+                                            <Send className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                    <p className="mt-4 text-[9px] font-black text-center text-foreground/20 uppercase tracking-[0.4em]">Encrypted Tactical Channel Locked</p>
+                                </div>
                             </div>
                         </motion.div>
                     </>

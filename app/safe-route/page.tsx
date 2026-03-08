@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Navbar } from '@/components/Navbar';
+import { ParticleCanvas } from '@/components/ParticleCanvas';
+import { TiltCard } from '@/components/TiltCard';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import {
@@ -35,6 +37,7 @@ import {
     FolderOpen,
     Cloud,
     FilePlus,
+    Radio,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -211,9 +214,9 @@ export default function SafeRoutePage() {
             attributionControl: false
         }).setView([userCoords.lat, userCoords.lng], 14);
 
-        // Premium Voyager Tiles (Clean & Modern)
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19
+        // Tactical Night Mode Tiles
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 20
         }).addTo(mapInstance.current);
 
         // Add zoom control at bottom right
@@ -497,79 +500,92 @@ export default function SafeRoutePage() {
         <motion.div
             whileTap={{ scale: 0.98 }}
             onClick={onClick}
-            className={`p-4 md:p-5 rounded-[2rem] border-2 cursor-pointer transition-all duration-300 ${isActive
-                ? route.type === 'safe'
-                    ? 'border-emerald-500 bg-emerald-50/50 shadow-xl shadow-emerald-100/50'
-                    : 'border-red-500 bg-red-50/50 shadow-xl shadow-red-100/50'
-                : 'border-white bg-white hover:border-slate-100 shadow-sm'
+            className={`cursor-pointer transition-all duration-500 rounded-[2.5rem] overflow-hidden ${isActive
+                ? 'ring-2 ring-primary ring-offset-4 ring-offset-slate-50 shadow-[0_0_50px_rgba(99,102,241,0.2)]'
+                : 'hover:translate-x-2'
                 }`}
         >
-            <div className="flex items-center justify-between mb-3 md:mb-4">
-                <div className="flex items-center gap-3">
-                    <div className={`p-2.5 md:p-3 rounded-2xl ${route.type === 'safe' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-500'}`}>
-                        {route.type === 'safe' ? <Shield className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
+            <TiltCard className={`p-6 md:p-8 relative overflow-hidden transition-all ${isActive
+                ? 'bg-primary/5 border-primary/20'
+                : 'bg-white border-white'
+                }`}>
+                <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-5">
+                        <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isActive
+                                ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                                : 'bg-slate-50 text-slate-400 group-hover:bg-primary/10 group-hover:text-primary'
+                                }`}>
+                                {route.type === 'safe' ? <Shield className="w-6 h-6" /> : <TrendingUp className="w-6 h-6" />}
+                            </div>
+                            <div>
+                                <p className="font-black text-foreground text-lg tracking-tight leading-none mb-1 uppercase">{route.label}</p>
+                                <p className="text-[10px] text-foreground/40 font-black uppercase tracking-[0.2em]">{route.distance} · {route.duration}</p>
+                            </div>
+                        </div>
+                        <ScoreBadge score={route.safetyScore} />
                     </div>
-                    <div>
-                        <p className="font-black text-slate-900 text-sm md:text-base leading-none mb-1">{route.label}</p>
-                        <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest">{route.distance} · {route.duration}</p>
-                    </div>
-                </div>
-                <ScoreBadge score={route.safetyScore} />
-            </div>
 
-            {route.riskFactors.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 md:gap-2 mt-2">
-                    {route.riskFactors.map((r, i) => (
-                        <span key={i} className="px-2 py-0.5 md:px-2.5 md:py-1 bg-red-100/50 text-red-600 text-[8px] md:text-[9px] font-black rounded-xl uppercase border border-red-100/50">
-                            ⚠ {r}
+                    {route.riskFactors.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-6">
+                            {route.riskFactors.map((r, i) => (
+                                <span key={i} className="px-3 py-1 bg-red-500/10 text-red-500 text-[9px] font-black rounded-lg uppercase tracking-widest border border-red-500/10">
+                                    ⚠ {r}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-5 border-t border-foreground/5">
+                        <span className={`text-[9px] font-black uppercase tracking-[0.3em] ${isActive ? 'text-primary' : 'text-foreground/20'}`}>
+                            {isActive ? '● SYSTEM ACTIVE' : 'PREVIEW TRAJECTORY'}
                         </span>
-                    ))}
+                        {isActive && <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_#6366f1]" />}
+                    </div>
                 </div>
-            )}
-
-            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${isActive ? 'text-slate-900' : 'text-slate-300'}`}>
-                    {isActive ? '● ACTIVE PREVIEW' : 'VIEW PATH'}
-                </span>
-                {isActive && <CheckCircle className="w-4 h-4 text-emerald-500" />}
-            </div>
+                {isActive && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent pointer-events-none" />
+                )}
+            </TiltCard>
         </motion.div>
     );
 
     return (
-        <main className="pt-24 pb-12 px-4 md:px-6 bg-slate-50 min-h-screen">
+        <main className="relative min-h-screen pt-24 md:pt-32 pb-20 px-4 md:px-6 overflow-hidden">
+            <ParticleCanvas />
             <Navbar pollingFrequency={5000} />
 
-            <div className="max-w-7xl mx-auto">
+            <div className="max-w-7xl mx-auto relative z-10">
                 <div className="flex flex-col xl:flex-row gap-8">
                     {/* Map Sidebar */}
                     <div className="w-full xl:w-[420px] space-y-6 order-2 xl:order-1">
                         <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="space-y-6">
                             <div>
-                                <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter leading-none mb-3">SAFE ROUTE <br /><span className="text-indigo-600">NAVIGATOR</span></h1>
-                                <p className="text-slate-500 text-xs md:text-sm font-medium">Real-time safety analysis powered by community intelligence and crime data.</p>
+                                <h1 className="text-3xl md:text-4xl font-black text-foreground tracking-tighter leading-none mb-3 uppercase">Tactical Route <br /><span className="text-primary">Navigator</span></h1>
+                                <p className="text-foreground/50 text-xs md:text-sm font-bold uppercase tracking-widest">Real-time safety analysis powered by community intelligence and crime data.</p>
                             </div>
 
                             <div className="space-y-3">
-                                <div className="flex items-center gap-2 md:gap-3 bg-white p-1.5 md:p-2 rounded-[1.5rem] md:rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 focus-within:border-indigo-300 transition-all">
-                                    <div className="p-3 md:p-4 bg-indigo-50 rounded-xl md:rounded-2xl">
-                                        <MapPin className="w-5 h-5 text-indigo-600" />
+                                <TiltCard className="glass-card p-8 md:p-12 rounded-[3rem] bg-background/40 backdrop-blur-3xl shadow-[0_30px_80px_-20px_rgba(var(--primary-rgb),0.3)] border border-primary/20">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent z-0 pointer-events-none" />
+                                    <div className="relative z-10 flex items-center gap-2 md:gap-3 bg-black/20 border border-white/10 rounded-2xl md:rounded-3xl p-3 md:p-4 mb-4 focus-within:border-primary/50 transition-all">
+                                        <MapPin className="w-5 h-5 text-primary" />
+                                        <input
+                                            type="text"
+                                            placeholder="Enter Destination..."
+                                            className="flex-1 bg-transparent border-none outline-none font-bold text-foreground placeholder:text-foreground/20 text-sm md:text-base pl-1"
+                                            value={destination}
+                                            onChange={(e) => setDestination(e.target.value)}
+                                        />
+                                        <button
+                                            onClick={calculateRoutes}
+                                            disabled={isLoading}
+                                            className="bg-primary hover:bg-primary/80 border border-primary/50 text-white p-3 md:p-4 rounded-xl md:rounded-2xl transition-all active:scale-[0.95] disabled:opacity-50 shadow-[0_0_20px_rgba(var(--primary-rgb),0.4)]"
+                                        >
+                                            <Search className="w-5 h-5" />
+                                        </button>
                                     </div>
-                                    <input
-                                        type="text"
-                                        placeholder="Enter Destination..."
-                                        className="flex-1 bg-transparent border-none outline-none font-black text-slate-900 placeholder:text-slate-300 text-xs md:text-sm pl-1"
-                                        value={destination}
-                                        onChange={(e) => setDestination(e.target.value)}
-                                    />
-                                    <button
-                                        onClick={calculateRoutes}
-                                        disabled={isLoading}
-                                        className="bg-slate-900 hover:bg-indigo-600 text-white p-3 md:p-4 rounded-xl md:rounded-2xl transition-all active:scale-90 disabled:opacity-50"
-                                    >
-                                        <Search className="w-5 h-5" />
-                                    </button>
-                                </div>
+                                </TiltCard>
                             </div>
 
                             <AnimatePresence>
@@ -578,73 +594,87 @@ export default function SafeRoutePage() {
                                         <RouteCard route={safeRoute!} isActive={activeRoute === 'safe'} onClick={() => switchRoute('safe')} />
                                         <RouteCard route={shortRoute!} isActive={activeRoute === 'short'} onClick={() => switchRoute('short')} />
 
-                                        <button className="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-2xl shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-3">
-                                            <Navigation className="w-4 h-4" /> Start Protected Navigation
+                                        <button className="btn-liquid w-full py-6 rounded-[2.5rem] font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-2xl shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-4">
+                                            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+                                                <Navigation className="w-4 h-4" />
+                                            </div>
+                                            INITIALIZE SECURE PATH
                                         </button>
                                     </div>
                                 )}
                             </AnimatePresence>
 
                             {!showRoutePanel && (
-                                <div className="bg-indigo-900 text-white p-8 rounded-[2.5rem] relative overflow-hidden shadow-2xl shadow-indigo-200">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16" />
-                                    <h3 className="font-black text-xl mb-4 leading-none">COMMUNITY <br />PROTECTION</h3>
-                                    <p className="text-indigo-200 text-xs font-bold uppercase tracking-widest leading-relaxed mb-6">
-                                        Our AI scans 2,400+ data points including street lighting, local incidents, and real-time user feedback.
-                                    </p>
-                                    <button
-                                        onClick={() => setShowReportModal(true)}
-                                        className="w-full py-4 bg-white text-indigo-900 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-indigo-50 transition-colors"
-                                    >
-                                        Report Safety Hazard
-                                    </button>
-                                </div>
+                                <TiltCard className="glass-card p-8 rounded-[3rem] relative overflow-hidden shadow-[0_30px_80px_-20px_rgba(var(--primary-rgb),0.5)] border border-primary/20 bg-background/80 backdrop-blur-3xl group">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/5 to-transparent z-0 pointer-events-none" />
+                                    <div className="absolute -top-40 -right-40 w-96 h-96 bg-primary/30 rounded-full blur-[100px] pointer-events-none z-0 transition-opacity group-hover:opacity-70 opacity-30"></div>
+                                    <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform pointer-events-none z-10 duration-700">
+                                        <AlertTriangle className="w-24 h-24 text-primary" />
+                                    </div>
+                                    <div className="relative z-20">
+                                        <h3 className="flex items-center gap-4 text-foreground font-black text-2xl uppercase tracking-[0.3em] leading-none mb-4">
+                                            <div className="p-3 bg-primary/10 rounded-2xl border border-primary/20 shadow-[0_0_20px_rgba(var(--primary-rgb),0.2)]">
+                                                <Radio className="w-6 h-6 text-primary animate-pulse" />
+                                            </div>
+                                            <span>NETWORK <span className="text-primary">SCAN</span></span>
+                                        </h3>
+                                        <p className="text-foreground/50 text-xs font-bold uppercase tracking-widest leading-relaxed mb-6">
+                                            Our AI scans 2,400+ data points including street lighting, local incidents, and real-time user feedback.
+                                        </p>
+                                        <button
+                                            onClick={() => setShowReportModal(true)}
+                                            className="w-full py-6 rounded-[2rem] text-[11px] font-black uppercase tracking-[0.4em] text-white bg-gradient-to-r from-primary via-primary to-primary shadow-[0_20px_50px_rgba(var(--primary-rgb),0.4)] border border-white/20 hover:shadow-[0_20px_60px_rgba(var(--primary-rgb),0.6)] hover:-translate-y-1 transition-all active:scale-[0.98]"
+                                        >
+                                            TRANSMIT TACTICAL DATA
+                                        </button>
+                                    </div>
+                                </TiltCard>
                             )}
                         </motion.div>
                     </div>
 
                     {/* Main Map View */}
                     <div className="flex-1 order-1 xl:order-2">
-                        <div className="relative w-full h-[600px] xl:h-[800px] bg-white rounded-[3rem] overflow-hidden shadow-2xl shadow-indigo-100/50 border border-white p-2">
-                            <div className="absolute top-6 left-6 right-6 z-10 flex justify-between items-center">
-                                <Link href="/map" className="p-4 bg-white/90 backdrop-blur-xl rounded-2xl shadow-xl border border-white hover:text-indigo-600 transition-colors">
+                        <div className="glass-card relative w-full h-[400px] lg:h-[600px] xl:h-[800px] bg-background/40 backdrop-blur-3xl rounded-[3rem] overflow-hidden shadow-[0_30px_80px_rgba(var(--primary-rgb),0.2)] border border-primary/20 p-2">
+                            <div className="absolute top-6 left-6 right-6 z-[1001] flex justify-between items-center">
+                                <Link href="/map" className="p-4 bg-background/80 backdrop-blur-3xl rounded-[2rem] shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-white/10 text-foreground/70 hover:text-primary hover:border-primary/50 transition-all flex items-center justify-center">
                                     <ArrowLeft className="w-5 h-5" />
                                 </Link>
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => setShowZones(!showZones)}
-                                        className={`px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl ${showZones ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600'}`}
+                                        className={`px-6 py-4 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-2xl border ${showZones ? 'bg-primary border-primary/50 text-white shadow-[0_10px_30px_rgba(var(--primary-rgb),0.4)]' : 'bg-background/80 backdrop-blur-3xl border-white/10 text-foreground/60 hover:text-foreground'}`}
                                     >
-                                        {showZones ? 'Hide Safety Data' : 'Show Safety Data'}
+                                        {showZones ? 'Disable Grid' : 'Enable Grid'}
                                     </button>
                                 </div>
                             </div>
 
                             {/* Map Container */}
-                            <div ref={mapRef} className="w-full h-full rounded-[2.5rem] z-0" />
+                            <div ref={mapRef} className="w-full h-full rounded-[2.5rem] z-0 grayscale-[0.5] invert-[0.05]" />
 
                             {!leafletLoaded && (
-                                <div className="absolute inset-0 bg-slate-50 flex items-center justify-center flex-col gap-4">
-                                    <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Loading Map Core...</span>
+                                <div className="absolute inset-0 bg-background/80 backdrop-blur-2xl flex flex-col items-center justify-center gap-6 z-[2000]">
+                                    <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-foreground/40">Initializing Sensors...</span>
                                 </div>
                             )}
 
                             {/* Map Legend (Bottom Left) */}
-                            <div className="absolute bottom-6 left-6 p-4 bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white z-10 hidden md:block">
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Live Intelligence Legend</p>
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-3 h-3 rounded-full bg-red-500" />
-                                        <span className="text-[10px] font-extrabold text-slate-900">Crime Hotspot</span>
+                            <div className="absolute bottom-8 left-8 p-6 bg-background/80 backdrop-blur-3xl rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 z-[1001] hidden md:block">
+                                <p className="text-[10px] font-black text-foreground/40 uppercase tracking-[0.2em] mb-4">Signal Key</p>
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
+                                        <span className="text-[10px] font-black text-foreground uppercase tracking-widest">High Risk</span>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-3 h-3 rounded-full bg-amber-500" />
-                                        <span className="text-[10px] font-extrabold text-slate-900">Poor Lighting</span>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
+                                        <span className="text-[10px] font-black text-foreground uppercase tracking-widest">Low Light</span>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                                        <span className="text-[10px] font-extrabold text-slate-900">Safe Zone</span>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                                        <span className="text-[10px] font-black text-foreground uppercase tracking-widest">Secure Area</span>
                                     </div>
                                 </div>
                             </div>
@@ -659,34 +689,35 @@ export default function SafeRoutePage() {
                     <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
                         <motion.div
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
+                            className="absolute inset-0 bg-background/80 backdrop-blur-md"
                             onClick={() => setShowReportModal(false)}
                         />
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="relative w-full max-w-lg bg-white rounded-[2rem] md:rounded-[3rem] p-6 md:p-10 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar"
+                            className="glass-card relative w-full max-w-lg bg-background/60 backdrop-blur-3xl rounded-[2rem] md:rounded-[3rem] p-6 md:p-10 shadow-[0_30px_80px_rgba(0,0,0,0.5)] border border-white/20 overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar"
                         >
-                            <div className="absolute top-0 right-0 p-4 md:p-8">
-                                <button onClick={() => setShowReportModal(false)} className="text-slate-300 hover:text-slate-900"><XCircle className="w-6 h-6" /></button>
+                            <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 via-transparent to-transparent z-0 pointer-events-none" />
+                            <div className="absolute top-0 right-0 p-4 md:p-8 z-10">
+                                <button onClick={() => setShowReportModal(false)} className="text-foreground/40 hover:text-red-500 transition-colors"><XCircle className="w-6 h-6" /></button>
                             </div>
 
-                            <div className="mb-6 md:mb-8">
-                                <div className="p-3 md:p-4 bg-red-50 text-red-600 rounded-2xl md:rounded-3xl w-fit mb-4">
-                                    <AlertCircle className="w-6 h-6 md:w-8 md:h-8" />
+                            <div className="mb-6 md:mb-8 relative z-10">
+                                <div className="p-3 md:p-4 bg-red-500/10 text-red-500 rounded-2xl md:rounded-3xl w-fit mb-4 border border-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+                                    <AlertCircle className="w-6 h-6 md:w-8 md:h-8 animate-pulse" />
                                 </div>
-                                <h2 className="text-2xl md:text-3xl font-black text-slate-900 leading-none">REPORT <br />INCIDENT</h2>
-                                <p className="text-slate-400 text-xs md:text-sm mt-2 font-medium">Verify your location to help others avoid this area.</p>
+                                <h2 className="text-2xl md:text-3xl font-black text-foreground leading-none uppercase tracking-widest">REPORT <br /><span className="text-red-500">INCIDENT</span></h2>
+                                <p className="text-foreground/50 text-xs md:text-sm mt-2 font-bold uppercase tracking-widest">Verify your location to help others avoid this area.</p>
                             </div>
 
-                            <div className="space-y-6">
+                            <div className="space-y-6 relative z-10">
                                 <div className="grid grid-cols-2 gap-3">
                                     {['harassment', 'theft', 'poor_lighting', 'unsafe_area'].map((type) => (
                                         <button
                                             key={type}
                                             onClick={() => setReportForm({ ...reportForm, reportType: type as any })}
-                                            className={`py-4 rounded-2xl font-black uppercase text-[9px] border-2 transition-all ${reportForm.reportType === type ? 'bg-indigo-600 border-indigo-600 text-white shadow-xl shadow-indigo-100' : 'bg-slate-50 border-slate-50 text-slate-400'}`}
+                                            className={`py-4 rounded-2xl font-black uppercase text-[9px] tracking-widest border transition-all ${reportForm.reportType === type ? 'bg-primary border-primary/50 text-white shadow-[0_0_20px_rgba(var(--primary-rgb),0.5)]' : 'bg-black/20 border-white/5 text-foreground/40 hover:text-foreground hover:bg-white/5'}`}
                                         >
                                             {type.replace('_', ' ')}
                                         </button>
@@ -697,7 +728,7 @@ export default function SafeRoutePage() {
                                         <button
                                             key={sev}
                                             onClick={() => setReportForm({ ...reportForm, severity: sev as any })}
-                                            className={`flex-1 py-3 rounded-xl font-black uppercase text-[8px] border-2 transition-all ${reportForm.severity === sev ? 'bg-red-500 border-red-500 text-white shadow-xl shadow-red-100' : 'bg-slate-50 border-slate-50 text-slate-400'}`}
+                                            className={`flex-1 py-3 rounded-xl font-black uppercase text-[8px] tracking-widest border transition-all ${reportForm.severity === sev ? 'bg-red-500 border-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'bg-black/20 border-white/5 text-foreground/40 hover:text-foreground hover:bg-white/5'}`}
                                         >
                                             {sev}
                                         </button>
@@ -707,7 +738,7 @@ export default function SafeRoutePage() {
                                 <div className="space-y-4">
                                     <textarea
                                         placeholder="Add more details about the incident..."
-                                        className="w-full p-4 bg-slate-50 border-none rounded-2xl text-sm font-medium text-slate-900 placeholder:text-slate-300 min-h-[100px] outline-none focus:ring-2 ring-indigo-500/20 transition-all"
+                                        className="w-full p-4 bg-black/20 border border-white/10 rounded-2xl text-sm font-bold text-foreground placeholder:text-foreground/20 min-h-[100px] outline-none focus:border-red-500/50 focus:bg-white/5 transition-all"
                                         value={reportForm.description}
                                         onChange={(e) => setReportForm({ ...reportForm, description: e.target.value })}
                                     />
@@ -715,9 +746,9 @@ export default function SafeRoutePage() {
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="flex-1 flex items-center justify-center gap-3 py-4 bg-indigo-50 text-indigo-600 rounded-2xl border-2 border-indigo-200/50 hover:bg-indigo-100 transition-all font-black uppercase text-[10px] tracking-widest group shadow-sm"
+                                            className="flex-1 flex items-center justify-center gap-3 py-4 bg-white/5 text-foreground rounded-2xl border border-white/10 hover:bg-white/10 transition-all font-black uppercase text-[10px] tracking-widest group shadow-[0_10px_20px_rgba(0,0,0,0.2)]"
                                         >
-                                            <FolderOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                            <FolderOpen className="w-5 h-5 group-hover:scale-110 group-hover:text-primary transition-all" />
                                             <span>Attach From Drive / Manager</span>
                                         </button>
 
@@ -731,7 +762,7 @@ export default function SafeRoutePage() {
                                     </div>
 
                                     {mediaPreview && (
-                                        <div className="relative rounded-2xl overflow-hidden border border-slate-100 shadow-lg group">
+                                        <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)] group">
                                             {mediaPreview.type === 'image' ? (
                                                 <img src={mediaPreview.url} alt="Incident" className="w-full h-32 object-cover" />
                                             ) : (
@@ -739,7 +770,7 @@ export default function SafeRoutePage() {
                                             )}
                                             <button
                                                 onClick={() => { setMediaPreview(null); setReportForm((prev: Partial<UserReport>) => ({ ...prev, mediaUrl: '' })); }}
-                                                className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-xl shadow-lg hover:bg-red-600 transition-colors"
+                                                className="absolute top-2 right-2 p-2 bg-red-500/80 backdrop-blur-md border border-red-500/50 text-white rounded-xl shadow-lg hover:bg-red-500 transition-colors"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
@@ -749,9 +780,9 @@ export default function SafeRoutePage() {
                                 <button
                                     onClick={handleSubmitReport}
                                     disabled={isSubmittingReport}
-                                    className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase tracking-widest text-xs hover:bg-slate-800 transition-all active:scale-95 shadow-2xl shadow-slate-200"
+                                    className={`w-full py-6 rounded-[2rem] text-[11px] font-black uppercase tracking-[0.4em] text-white bg-gradient-to-r from-red-500 via-red-500 to-red-500 shadow-[0_20px_50px_rgba(239,68,68,0.4)] border border-red-500/30 hover:shadow-[0_20px_60px_rgba(239,68,68,0.6)] hover:-translate-y-1 transition-all active:scale-[0.98] ${isSubmittingReport ? 'opacity-50 animate-pulse' : ''}`}
                                 >
-                                    {isSubmittingReport ? 'Submitting Signal...' : 'Broadcast Safety Alert'}
+                                    {isSubmittingReport ? 'ENCRYPTING SIGNAL...' : 'BROADCAST TACTICAL ALERT'}
                                 </button>
                             </div>
                         </motion.div>
@@ -762,15 +793,21 @@ export default function SafeRoutePage() {
             <style jsx global>{`
                 .leaflet-container { 
                     font-family: inherit;
-                    background: #f8fafc;
+                    background: #000 !important;
                 }
                 .leaflet-popup-content-wrapper {
+                    background: transparent !important;
+                    box-shadow: none !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
                     border-radius: 20px;
-                    padding: 8px;
-                    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
                 }
-                .leaflet-popup-tip {
-                    display: none;
+                .leaflet-popup-content {
+                    margin: 0 !important;
+                    width: auto !important;
+                }
+                .leaflet-popup-tip-container {
+                    display: none !important;
                 }
             `}</style>
         </main>

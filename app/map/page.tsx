@@ -560,7 +560,17 @@ export default function MapPage() {
                                 </p>
 
                                 <button
-                                    onClick={handleBroadcast}
+                                    onClick={(e) => {
+                                        // Prevent double firing on mobile
+                                        if (e.detail !== 0) handleBroadcast();
+                                    }}
+                                    onTouchStart={(e) => {
+                                        // iOS/Android Zero-Latency + Haptics
+                                        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                                            navigator.vibrate([50, 30, 50]);
+                                        }
+                                        handleBroadcast();
+                                    }}
                                     disabled={isBroadcasting}
                                     className={`w-full py-8 rounded-[2.5rem] text-[13px] font-black uppercase tracking-[0.4em] shadow-2xl transition-all duration-500 relative overflow-hidden group/btn active:scale-[0.98] ${isSOSActive
                                         ? 'bg-red-500/10 text-red-500 shadow-[0_0_50px_rgba(239,68,68,0.2)] border border-red-500/30 hover:bg-red-500/20'

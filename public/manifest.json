@@ -1,21 +1,78 @@
 {
-  "name": "HerSecure",
+  "name": "HerSecure – Women's Safety Platform",
   "short_name": "HerSecure",
-  "description": "Futuristic AI Women Security Platform",
+  "description": "Elite AI-powered personal security platform. Real-time protection, emergency SOS, safe routing, and intelligent threat detection.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#050505",
   "theme_color": "#8b5cf6",
+  "lang": "en",
+  "categories": [
+    "security",
+    "lifestyle",
+    "utilities"
+  ],
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "HerSecure Dashboard"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "SOS Alert",
+      "short_name": "SOS",
+      "description": "Trigger emergency SOS alert",
+      "url": "/?sos=true",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Safe Route",
+      "short_name": "Route",
+      "description": "Find a safe route",
+      "url": "/safe-route",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

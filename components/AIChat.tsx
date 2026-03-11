@@ -70,21 +70,22 @@ export const AIChat = () => {
     return (
         <>
             <motion.div
-                initial={{ x: '100%' }}
-                animate={{ x: isOpen ? '100%' : 0 }}
-                className="fixed top-1/2 right-0 -translate-y-1/2 z-40 flex items-center"
+                initial={{ y: 100, x: '-50%', opacity: 0 }}
+                animate={{ y: isOpen ? 100 : 0, x: '-50%', opacity: 1 }}
+                className="fixed bottom-10 left-1/2 z-40"
             >
                 <motion.button
-                    whileHover={{ scale: 1.05 }}
+                    whileHover={{ scale: 1.05, y: -2 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setIsOpen(true)}
-                    className="p-4 bg-background/60 backdrop-blur-3xl border border-r-0 border-white/20 rounded-l-3xl shadow-[-10px_0_30px_rgba(0,0,0,0.3)] group hover:bg-primary/20 transition-all flex items-center gap-3"
+                    className="px-8 py-4 bg-background/40 backdrop-blur-3xl border border-white/10 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.3)] group hover:bg-primary/20 transition-all flex items-center gap-4 border-b-primary/30"
                     aria-label="Open GuardianAI"
                 >
                     <div className="relative">
                         <MessageSquare className="w-5 h-5 text-primary group-hover:text-white transition-colors" />
                         <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_10px_#4ade80]" />
                     </div>
+                    <span className="text-[11px] font-black text-foreground/60 group-hover:text-white uppercase tracking-[0.3em]">AI Guardian Online</span>
                 </motion.button>
             </motion.div>
 
@@ -95,16 +96,16 @@ export const AIChat = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-background/20 backdrop-blur-sm z-[99]"
+                            className="fixed inset-0 bg-background/40 backdrop-blur-md z-[99]"
                             onClick={() => setIsOpen(false)}
                         />
 
                         <motion.div
-                            initial={{ opacity: 0, x: 100, scale: 0.9 }}
-                            animate={{ opacity: 1, x: 0, scale: 1 }}
-                            exit={{ opacity: 0, x: 100, scale: 0.9 }}
+                            initial={{ opacity: 0, y: 100, x: '-50%', scale: 0.9 }}
+                            animate={{ opacity: 1, y: '-50%', x: '-50%', scale: 1 }}
+                            exit={{ opacity: 0, y: 100, x: '-50%', scale: 0.9 }}
                             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                            className="fixed top-1/2 right-8 -translate-y-1/2 w-[calc(100vw-3rem)] max-w-[450px] h-[75vh] glass-card z-[100] flex flex-col shadow-[0_50px_100px_rgba(0,0,0,0.7)] overflow-hidden rounded-[3rem] border border-white/10 group/terminal"
+                            className="fixed top-1/2 left-1/2 w-[calc(100vw-3rem)] max-w-[500px] h-[80vh] glass-card z-[100] flex flex-col shadow-[0_50px_100px_rgba(0,0,0,0.7)] overflow-hidden rounded-[3.5rem] border border-white/10 group/terminal"
                         >
                             {/* Neural Scan Line Animation */}
                             <motion.div

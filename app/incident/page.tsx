@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { motion } from 'framer-motion';
 import {
@@ -29,6 +29,8 @@ export default function IncidentReport() {
     const [isAnonymous, setIsAnonymous] = useState(false);
     const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
     const [loading, setLoading] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const { startRecording, stopRecording, isRecording } = useAudioRecorder();
 
     useEffect(() => {
@@ -212,11 +214,39 @@ export default function IncidentReport() {
                                     />
                                 </div>
 
-                                <div className="flex gap-6">
-                                    <button type="button" className="flex-1 flex items-center justify-center gap-4 p-6 bg-white/5 border border-white/10 rounded-3xl text-[10px] font-bold uppercase tracking-[0.2em] text-foreground/60 hover:bg-white/10 hover:border-primary/40 hover:text-primary transition-all group backdrop-blur-md">
+                                <div className="flex flex-col gap-4">
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                                        className="hidden"
+                                        accept="image/*,video/*"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className={`flex-1 flex items-center justify-center gap-4 p-6 border rounded-3xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all group backdrop-blur-md ${selectedFile
+                                            ? 'bg-primary/20 border-primary/40 text-primary'
+                                            : 'bg-white/5 border-white/10 text-foreground/60 hover:bg-white/10 hover:border-primary/40 hover:text-primary'
+                                            }`}
+                                    >
                                         <Camera className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                        Attach Media Evidence
+                                        {selectedFile ? 'Change Media Evidence' : 'Attach Media Evidence'}
                                     </button>
+                                    {selectedFile && (
+                                        <div className="flex items-center justify-between px-6 py-3 bg-primary/5 border border-primary/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
+                                            <span className="text-[10px] font-bold text-primary/80 truncate max-w-[200px]">
+                                                {selectedFile.name}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedFile(null)}
+                                                className="text-[10px] font-black text-red-500 hover:text-red-400 uppercase tracking-widest"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <button

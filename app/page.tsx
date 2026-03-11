@@ -344,7 +344,6 @@ function StatusBar({ batteryLevel, shakeEnabled, onShakeToggle }: { batteryLevel
 ═══════════════════════════════════════════════════ */
 export default function Home() {
   const [isSOSActive, setIsSOSActive] = useState(false);
-  const [countdown, setCountdown] = useState(0);
   const [activeSOSId, setActiveSOSId] = useState<string | null>(null);
   const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
   const { startAlarm, stopAlarm } = useAlarm();
@@ -369,6 +368,11 @@ export default function Home() {
   }, []);
 
   const startEmergency = useCallback(async () => {
+    // 1. Immediate Visual & Audio Feedback
+    startAlarm();
+    setIsSOSActive(true);
+
+    // 2. Background Geolocation & Server Sync
     let location = { lat: 0, lng: 0, address: 'Live Coordinates' };
     const geo = () => new Promise<void>(resolve => {
       if ('geolocation' in navigator) {
@@ -378,36 +382,31 @@ export default function Home() {
         }, () => resolve());
       } else resolve();
     });
-    await geo();
-    startAlarm();
-    setIsSOSActive(true);
-    try {
-      const res = await fetch('/api/sos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ location, triggerType: 'Manual', batteryLevel }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setActiveSOSId(data._id);
-        toast.error('🚨 EMERGENCY SIGNAL SENT!', { duration: 6000 });
+
+    geo().then(async () => {
+      try {
+        const res = await fetch('/api/sos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ location, triggerType: 'Manual', batteryLevel }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setActiveSOSId(data._id);
+          toast.error('🚨 EMERGENCY SIGNAL SENT!', { duration: 6000 });
+        }
+      } catch {
+        toast.error('🚨 Local Alarm Active');
       }
-    } catch { toast.error('🚨 Local Alarm Active'); }
+    });
   }, [batteryLevel, startAlarm]);
 
   const handleActivate = useCallback(() => {
-    if (countdown > 0) return;
-    setCountdown(3);
-    let c = 3;
-    const t = setInterval(() => {
-      c--;
-      setCountdown(c);
-      if (c <= 0) { clearInterval(t); startEmergency(); }
-    }, 1000);
-  }, [countdown, startEmergency]);
+    startEmergency();
+  }, [startEmergency]);
 
   const handleDeactivate = useCallback(async () => {
-    stopAlarm(10000);
+    stopAlarm();
     setIsSOSActive(false);
     if (!activeSOSId) { toast.success('SOS Deactivated'); return; }
     try {
@@ -503,7 +502,7 @@ export default function Home() {
         <motion.div variants={itemVariants} className="flex flex-col items-center mb-32">
           <SOSOrb
             isActive={isSOSActive}
-            countdown={countdown}
+            countdown={0}
             onActivate={handleActivate}
             onDeactivate={handleDeactivate}
           />
@@ -513,7 +512,7 @@ export default function Home() {
             className="mt-8 text-[11px] font-bold uppercase tracking-[0.3em]"
             style={{ color: 'var(--fg-muted)' }}
           >
-            {isSOSActive ? 'Signal broadcasting — tap orb to disarm' : 'Hold orb to trigger — 3 second arm delay'}
+            {isSOSActive ? 'Signal broadcasting — tap orb to disarm' : 'Hold orb to trigger — instant activation'}
           </motion.p>
         </motion.div>
 

@@ -4,29 +4,31 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 
 // GLOBAL REFS to ensure all instances of the hook control the SAME audio context and oscillator
 let globalAudioCtx: AudioContext | null = null;
-let globalOscillator: OscillatorNode | null = null;
+let globalOscillator1: OscillatorNode | null = null;
+let globalOscillator2: OscillatorNode | null = null;
 let globalGainNode: GainNode | null = null;
 let globalIsPlaying = false;
-let globalMutedUntil = 0; // Timestamp to suppress restarts after manual deactivation
 
 export const useAlarm = () => {
     const [, setUpdate] = useState(0);
 
-    const stopAlarm = useCallback((suppressForMs = 0) => {
+    const stopAlarm = useCallback(() => {
         globalIsPlaying = false;
 
-        if (suppressForMs > 0) {
-            globalMutedUntil = Date.now() + suppressForMs;
-        }
+        const stopOsc = (osc: OscillatorNode | null) => {
+            if (osc) {
+                try {
+                    osc.frequency.cancelScheduledValues(0);
+                    osc.stop();
+                    osc.disconnect();
+                } catch (e) { }
+            }
+        };
 
-        if (globalOscillator) {
-            try {
-                globalOscillator.frequency.cancelScheduledValues(0);
-                globalOscillator.stop();
-                globalOscillator.disconnect();
-            } catch (e) { }
-            globalOscillator = null;
-        }
+        stopOsc(globalOscillator1);
+        stopOsc(globalOscillator2);
+        globalOscillator1 = null;
+        globalOscillator2 = null;
 
         if (globalGainNode) {
             try {
@@ -44,13 +46,6 @@ export const useAlarm = () => {
 
     const startAlarm = useCallback(() => {
         if (globalIsPlaying) return;
-
-        // Suppress restart if we recently manually deactivated (prevents polling race conditions)
-        if (Date.now() < globalMutedUntil) {
-            console.log('Alarm restart suppressed due to recent deactivation');
-            return;
-        }
-
         globalIsPlaying = true;
 
         try {
@@ -62,31 +57,46 @@ export const useAlarm = () => {
                 globalAudioCtx.resume();
             }
 
-            const osc = globalAudioCtx.createOscillator();
-            const gain = globalAudioCtx.createGain();
+            const ctx = globalAudioCtx;
+            const now = ctx.currentTime;
 
-            osc.type = 'sawtooth';
-            const now = globalAudioCtx.currentTime;
-            osc.frequency.setValueAtTime(440, now);
+            // Create Master Gain
+            const masterGain = ctx.createGain();
+            masterGain.gain.setValueAtTime(0, now);
+            masterGain.gain.linearRampToValueAtTime(0.8, now + 0.05); // Faster attack
 
+            // Dual Oscillators for "Phasing" piercing effect
+            const osc1 = ctx.createOscillator();
+            const osc2 = ctx.createOscillator();
+            
+            osc1.type = 'sawtooth';
+            osc2.type = 'square'; // Mixed types for richer harmonics
+
+            // Siren Modulation Logic (Faster & More Accurate)
+            const cycleTime = 0.25; // 4 cycles per second
             let t = 0;
-            const cycleTime = 0.3;
-            for (let i = 0; i < 2000; i++) {
-                osc.frequency.exponentialRampToValueAtTime(880, now + t + cycleTime / 2);
-                osc.frequency.exponentialRampToValueAtTime(440, now + t + cycleTime);
+            for (let i = 0; i < 1000; i++) {
+                // Oscillator 1: Main Siren sweep
+                osc1.frequency.exponentialRampToValueAtTime(900, now + t + cycleTime / 2);
+                osc1.frequency.exponentialRampToValueAtTime(500, now + t + cycleTime);
+                
+                // Oscillator 2: Slightly detuned + offset for "shimmer"
+                osc2.frequency.exponentialRampToValueAtTime(910, now + t + cycleTime / 2);
+                osc2.frequency.exponentialRampToValueAtTime(510, now + t + cycleTime);
+                
                 t += cycleTime;
             }
 
-            gain.gain.setValueAtTime(0, now);
-            gain.gain.linearRampToValueAtTime(0.4, now + 0.1);
+            osc1.connect(masterGain);
+            osc2.connect(masterGain);
+            masterGain.connect(ctx.destination);
 
-            osc.connect(gain);
-            gain.connect(globalAudioCtx.destination);
+            osc1.start();
+            osc2.start();
 
-            osc.start();
-
-            globalOscillator = osc;
-            globalGainNode = gain;
+            globalOscillator1 = osc1;
+            globalOscillator2 = osc2;
+            globalGainNode = masterGain;
 
             setUpdate(prev => prev + 1);
         } catch (error) {

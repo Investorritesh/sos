@@ -22,6 +22,9 @@ export default function ThreatScanner() {
 
     const modelRef = useRef<cocoSsd.ObjectDetection | null>(null);
     const requestRef = useRef<number | null>(null);
+    const [scanPulse, setScanPulse] = useState(0);
+    const [lastDetectionTime, setLastDetectionTime] = useState<number>(0);
+    const [sysLogs, setSysLogs] = useState<string[]>(['INITIALIZING NEURAL LINK...', 'STANDBY MODE']);
 
     // Load Model
     useEffect(() => {
@@ -105,13 +108,30 @@ export default function ThreatScanner() {
             setDetections(predictions);
             drawPredictions(predictions);
 
-            // Determine Threat Level based on detections (simple logic)
-            const hasPerson = predictions.some(p => p.class === 'person' && p.score > 0.6);
-            const hasVehicle = predictions.some(p => ['car', 'truck', 'motorcycle'].includes(p.class) && p.score > 0.5);
+            // Determine Threat Level based on detections (Refined Logic)
+            const people = predictions.filter(p => p.class === 'person' && p.score > 0.6);
+            const vehicles = predictions.filter(p => ['car', 'truck', 'motorcycle'].includes(p.class) && p.score > 0.5);
 
-            if (hasPerson && hasVehicle) setThreatLevel('Critical');
-            else if (hasPerson || hasVehicle) setThreatLevel('Elevated');
-            else setThreatLevel('Safe');
+            const hasClosePerson = people.some(p => {
+                const [,, w, h] = p.bbox;
+                return (w * h) / (canvasRef.current!.width * canvasRef.current!.height) > 0.15;
+            });
+
+            if (people.length >= 3 || (people.length >= 1 && hasClosePerson)) {
+                setThreatLevel('Critical');
+                if (Date.now() - lastDetectionTime > 2000) {
+                    setSysLogs(prev => [`CRITICAL: TARGET PROXIMITY BREACHED [${new Date().toLocaleTimeString()}]`, ...prev.slice(0, 5)]);
+                    setLastDetectionTime(Date.now());
+                }
+            } else if (people.length > 0 || vehicles.length > 0) {
+                setThreatLevel('Elevated');
+                if (Date.now() - lastDetectionTime > 3000) {
+                    setSysLogs(prev => [`VECTORS IDENTIFIED: ${people.length}P ${vehicles.length}V`, ...prev.slice(0, 5)]);
+                    setLastDetectionTime(Date.now());
+                }
+            } else {
+                setThreatLevel('Safe');
+            }
         }
 
         if (isScanning) {
@@ -127,37 +147,87 @@ export default function ThreatScanner() {
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+        // Draw Scanning Line
+        const time = Date.now() / 1000;
+        const scanLineY = (Math.sin(time * 2) + 1) / 2 * canvas.height;
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.moveTo(0, scanLineY);
+        ctx.lineTo(canvas.width, scanLineY);
+        ctx.stroke();
+
         predictions.forEach(prediction => {
             const [x, y, width, height] = prediction.bbox;
+            const isPerson = prediction.class === 'person';
+            const color = isPerson ? '#ef4444' : '#6366f1';
+            const proximity = Math.round((width * height) / (canvas.width * canvas.height) * 100);
 
-            // Draw bounding box
-            ctx.strokeStyle = prediction.class === 'person' ? '#ef4444' : '#6366f1';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(x, y, width, height);
-
-            // Draw label background
-            ctx.fillStyle = prediction.class === 'person' ? 'rgba(239, 68, 68, 0.85)' : 'rgba(99, 102, 241, 0.85)';
-            const textWidth = ctx.measureText(prediction.class).width;
-            const labelHeight = 24;
-            ctx.fillRect(x, y - labelHeight, textWidth + 60, labelHeight);
-
-            // Draw label text
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 14px "Inter", sans-serif';
-            ctx.fillText(`${prediction.class.toUpperCase()} ${Math.round(prediction.score * 100)}%`, x + 5, y - 6);
-
-            // Draw crosshairs at center
-            const centerX = x + width / 2;
-            const centerY = y + height / 2;
-
+            // 1. Draw Bounding Box (Corner Style)
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            const cornerSize = 15;
+            
+            // Top Left
             ctx.beginPath();
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-            ctx.lineWidth = 1;
-            ctx.moveTo(centerX - 10, centerY);
-            ctx.lineTo(centerX + 10, centerY);
-            ctx.moveTo(centerX, centerY - 10);
-            ctx.lineTo(centerX, centerY + 10);
+            ctx.moveTo(x, y + cornerSize);
+            ctx.lineTo(x, y);
+            ctx.lineTo(x + cornerSize, y);
             ctx.stroke();
+
+            // Top Right
+            ctx.beginPath();
+            ctx.moveTo(x + width - cornerSize, y);
+            ctx.lineTo(x + width, y);
+            ctx.lineTo(x + width, y + cornerSize);
+            ctx.stroke();
+
+            // Bottom Left
+            ctx.beginPath();
+            ctx.moveTo(x, y + height - cornerSize);
+            ctx.lineTo(x, y + height);
+            ctx.lineTo(x + cornerSize, y + height);
+            ctx.stroke();
+
+            // Bottom Right
+            ctx.beginPath();
+            ctx.moveTo(x + width - cornerSize, y + height);
+            ctx.lineTo(x + width, y + height);
+            ctx.lineTo(x + width, y + height - cornerSize);
+            ctx.stroke();
+
+            // 2. Draw Digital Shadow
+            ctx.fillStyle = isPerson ? 'rgba(239, 68, 68, 0.1)' : 'rgba(99, 102, 241, 0.1)';
+            ctx.fillRect(x, y, width, height);
+
+            // 3. Tactical Label
+            ctx.fillStyle = color;
+            ctx.font = 'bold 9px "Inter", sans-serif';
+            ctx.textBaseline = 'bottom';
+            const labelText = `${prediction.class.toUpperCase()} // PROX: ${proximity}%`;
+            ctx.fillText(labelText, x, y - 5);
+
+            // 4. Telemetry lines
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.setLineDash([2, 4]);
+            ctx.lineWidth = 1;
+            ctx.moveTo(x + width, y + height / 2);
+            ctx.lineTo(x + width + 20, y + height / 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = color;
+            ctx.fillText(`CONF: ${Math.round(prediction.score * 100)}%`, x + width + 25, y + height / 2 + 3);
+
+            // 5. Targeting Crosshair on high confidence
+            if (prediction.score > 0.7) {
+                const cx = x + width/2;
+                const cy = y + height/2;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+                ctx.stroke();
+            }
         });
     };
 
@@ -267,8 +337,13 @@ export default function ThreatScanner() {
                                     <span className="text-xs font-bold text-emerald-400">14ms</span>
                                 </div>
                             </div>
-                            <div className="text-xs text-white/30 font-mono tracking-wider">
-                                SYSLOG: {isScanning ? 'ENGAGED / NEURAL LINK ESTABLISHED' : 'STANDBY MODE'}
+                            <div className="text-[10px] text-indigo-400/80 font-mono tracking-wider flex items-center gap-4 overflow-hidden h-4">
+                                <span className="flex-shrink-0">SYSLOG:</span>
+                                <div className="flex gap-4 animate-in slide-in-from-right-full repeat-infinite duration-[10000ms]">
+                                    {sysLogs.map((log, i) => (
+                                        <span key={i} className="whitespace-nowrap">{log} //</span>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>

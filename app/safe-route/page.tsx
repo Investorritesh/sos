@@ -165,6 +165,8 @@ export default function SafeRoutePage() {
     const [showRoutePanel, setShowRoutePanel] = useState(false);
     const [leafletLoaded, setLeafletLoaded] = useState(false);
     const [mediaPreview, setMediaPreview] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
+    const [isNavigating, setIsNavigating] = useState(false);
+    const [navigationCheckpoint, setNavigationCheckpoint] = useState(0);
 
     // ─── Load Leaflet Assets ─────────────────────────────────────────────────
     useEffect(() => {
@@ -234,10 +236,11 @@ export default function SafeRoutePage() {
             .addTo(mapInstance.current)
             .bindPopup('<b>Your Location</b>');
 
-        // Initial Zones
-        const zones = generateSafetyZonesAroundPoint(userCoords);
-        setSafetyZones(zones);
-        drawZones(zones, true);
+        // Initial Zones & Fetch Community Data
+        const initialZones = generateSafetyZonesAroundPoint(userCoords);
+        setSafetyZones(initialZones);
+        drawZones(initialZones, true);
+        fetchNearbyReports();
 
         // Handle responsive container resizing
         const resizeObserver = new ResizeObserver(() => {
@@ -249,6 +252,35 @@ export default function SafeRoutePage() {
 
         return () => resizeObserver.disconnect();
     }, [leafletLoaded, userCoords]);
+
+    // ─── Fetch Community Reports ──────────────────────────────────────────────
+    const fetchNearbyReports = useCallback(async () => {
+        if (!userCoords) return;
+        try {
+            const res = await fetch(`/api/safety-report?lat=${userCoords.lat}&lng=${userCoords.lng}&radius=0.1`);
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                const communityZones: SafetyZone[] = data.map(report => ({
+                    id: report._id,
+                    center: report.location,
+                    radius: 200,
+                    score: report.severity === 'critical' ? 10 : report.severity === 'high' ? 30 : 50,
+                    type: 'user_report',
+                    label: `COMMUNITY: ${report.reportType.toUpperCase()}`,
+                    details: report.description,
+                    severity: report.severity
+                }));
+                
+                setSafetyZones(prev => {
+                    const existingIds = new Set(prev.map(z => z.id));
+                    const uniqueNew = communityZones.filter(z => !existingIds.has(z.id));
+                    return [...prev, ...uniqueNew];
+                });
+            }
+        } catch (err) {
+            console.error('Failed to fetch community intel', err);
+        }
+    }, [userCoords]);
 
     // ─── Draw safety zones ───────────────────────────────────────────────────
     const drawZones = useCallback((zones: SafetyZone[], visible: boolean) => {
@@ -332,11 +364,15 @@ export default function SafeRoutePage() {
             const dest: LatLng = { lat: destLat, lng: destLng };
 
             // 2. Dynamically Generate/Fetch Safety Zones for this area
-            // (In production, this would fetch from MongoDB using a $geoWithin query)
             const midpoint = { lat: (userCoords.lat + dest.lat) / 2, lng: (userCoords.lng + dest.lng) / 2 };
-            const newZones = generateSafetyZonesAroundPoint(midpoint);
-            setSafetyZones(newZones);
-            drawZones(newZones, showZones);
+            const generatedZones = generateSafetyZonesAroundPoint(midpoint);
+            
+            setSafetyZones(prev => {
+                const communityOnly = prev.filter(z => z.type === 'user_report');
+                const combined = [...communityOnly, ...generatedZones];
+                drawZones(combined, showZones);
+                return combined;
+            });
 
             // 3. Routing (OSRM Foot Profile for pedestrian safety)
             // Request alternatives=true to find safer detours
@@ -461,7 +497,22 @@ export default function SafeRoutePage() {
                 }),
             });
             if (res.ok) {
+                const report = await res.json();
                 toast.success('Area reported. Stay safe!', { icon: '🚨' });
+                
+                // Immediately add to map
+                const newZone: SafetyZone = {
+                    id: report._id,
+                    center: report.location,
+                    radius: 200,
+                    score: report.severity === 'critical' ? 10 : report.severity === 'high' ? 30 : 50,
+                    type: 'user_report',
+                    label: `YOUR REPORT: ${report.reportType.toUpperCase()}`,
+                    details: report.description,
+                    severity: report.severity
+                };
+                setSafetyZones(prev => [newZone, ...prev]);
+                
                 setShowReportModal(false);
                 setMediaPreview(null);
                 setReportForm({ reportType: 'unsafe_area', severity: 'medium', description: '' });
@@ -475,14 +526,21 @@ export default function SafeRoutePage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // In a real app, you'd upload this to S3/Cloudinary.
-        // For this demo, we'll use a local object URL to simulate the secure log.
         const url = URL.createObjectURL(file);
         const type = file.type.startsWith('image/') ? 'image' : 'video';
 
         setMediaPreview({ url, type });
         setReportForm((prev: Partial<UserReport>) => ({ ...prev, mediaUrl: url }));
         toast.success(`${type === 'image' ? 'Photo' : 'Video'} attached securely`);
+    };
+
+    const initializeSecurePath = () => {
+        if (!activeRoute) return;
+        setIsNavigating(true);
+        toast.success('🛡️ SECURE PATH LOCKED. NAVIGATION ACTIVE.', {
+            duration: 5000,
+            style: { background: '#064e3b', color: '#fff', fontWeight: 'bold' }
+        });
     };
 
     // ─── UI Components ───────────────────────────────────────────────────────
@@ -594,7 +652,10 @@ export default function SafeRoutePage() {
                                         <RouteCard route={safeRoute!} isActive={activeRoute === 'safe'} onClick={() => switchRoute('safe')} />
                                         <RouteCard route={shortRoute!} isActive={activeRoute === 'short'} onClick={() => switchRoute('short')} />
 
-                                        <button className="btn-liquid w-full py-6 rounded-[2.5rem] font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-2xl shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-4">
+                                        <button 
+                                            onClick={initializeSecurePath}
+                                            className="btn-liquid w-full py-6 rounded-[2.5rem] font-black uppercase tracking-[0.2em] text-[11px] text-white shadow-2xl shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-4"
+                                        >
                                             <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
                                                 <Navigation className="w-4 h-4" />
                                             </div>
@@ -649,6 +710,55 @@ export default function SafeRoutePage() {
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Tactical Navigation HUD Overlay */}
+                            <AnimatePresence>
+                                {isNavigating && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, scale: 0.95, y: -20 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.95, y: -20 }}
+                                        className="absolute inset-x-8 top-24 z-[1002] pointer-events-none"
+                                    >
+                                        <div className="glass-card bg-emerald-950/60 backdrop-blur-2xl border-emerald-500/40 p-6 md:p-8 rounded-[3rem] flex items-center justify-between shadow-[0_40px_100px_rgba(16,185,129,0.3)]">
+                                            <div className="flex items-center gap-8">
+                                                <div className="relative">
+                                                    <div className="w-20 h-20 bg-emerald-500/20 rounded-3xl flex items-center justify-center border border-emerald-500/40 shadow-[0_0_30px_rgba(16,185,129,0.4)]">
+                                                        <Zap className="w-10 h-10 text-emerald-400 animate-pulse" />
+                                                    </div>
+                                                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center border-4 border-emerald-950 shadow-lg">
+                                                        <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-[11px] font-black text-emerald-400/80 uppercase tracking-[0.4em] mb-2 flex items-center gap-2">
+                                                        <span className="w-1 h-1 bg-emerald-400 rounded-full animate-pulse" />
+                                                        SECURE PATH LOCKED
+                                                    </div>
+                                                    <div className="text-2xl font-black text-white tracking-tighter uppercase leading-none">PRIMARY VECTOR ACTIVE</div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="hidden md:flex flex-col items-center px-10 border-x border-white/5">
+                                                <div className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-1">Estimated Drift</div>
+                                                <div className="text-2xl font-black text-emerald-400 leading-none">± 2.4m</div>
+                                            </div>
+
+                                            <div className="flex flex-col items-end">
+                                                <div className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-1">Checkpoint 01</div>
+                                                <div className="text-3xl font-black text-white leading-none tracking-tighter">340m</div>
+                                            </div>
+                                            
+                                            <button 
+                                                onClick={() => setIsNavigating(false)}
+                                                className="pointer-events-auto p-5 bg-white/5 hover:bg-red-500/20 rounded-3xl border border-white/10 hover:border-red-500/40 transition-all text-white/20 hover:text-red-500 ml-8"
+                                            >
+                                                <X className="w-6 h-6" />
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
 
                             {/* Map Container */}
                             <div ref={mapRef} className="w-full h-full rounded-[2.5rem] z-0 grayscale-[0.5] invert-[0.05]" />

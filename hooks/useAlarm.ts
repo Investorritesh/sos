@@ -49,41 +49,41 @@ export const useAlarm = () => {
         globalIsPlaying = true;
 
         try {
+            // iOS Compatibility: Ensure AudioContext is created/resumed in a user gesture
             if (!globalAudioCtx || globalAudioCtx.state === 'closed') {
-                globalAudioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-            }
-
-            if (globalAudioCtx.state === 'suspended') {
-                globalAudioCtx.resume();
+                const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
+                globalAudioCtx = new AudioContextClass();
             }
 
             const ctx = globalAudioCtx;
+
+            // Unlock AudioContext for iOS
+            if (ctx.state === 'suspended') {
+                ctx.resume();
+            }
+
             const now = ctx.currentTime;
 
             // Create Master Gain
             const masterGain = ctx.createGain();
             masterGain.gain.setValueAtTime(0, now);
-            masterGain.gain.linearRampToValueAtTime(0.8, now + 0.05); // Faster attack
+            masterGain.gain.linearRampToValueAtTime(0.8, now + 0.05);
 
-            // Dual Oscillators for "Phasing" piercing effect
+            // Dual Oscillators
             const osc1 = ctx.createOscillator();
             const osc2 = ctx.createOscillator();
             
             osc1.type = 'sawtooth';
-            osc2.type = 'square'; // Mixed types for richer harmonics
+            osc2.type = 'square';
 
-            // Siren Modulation Logic (Faster & More Accurate)
-            const cycleTime = 0.25; // 4 cycles per second
+            // Siren Modulation
+            const cycleTime = 0.25;
             let t = 0;
             for (let i = 0; i < 1000; i++) {
-                // Oscillator 1: Main Siren sweep
                 osc1.frequency.exponentialRampToValueAtTime(900, now + t + cycleTime / 2);
                 osc1.frequency.exponentialRampToValueAtTime(500, now + t + cycleTime);
-                
-                // Oscillator 2: Slightly detuned + offset for "shimmer"
                 osc2.frequency.exponentialRampToValueAtTime(910, now + t + cycleTime / 2);
                 osc2.frequency.exponentialRampToValueAtTime(510, now + t + cycleTime);
-                
                 t += cycleTime;
             }
 

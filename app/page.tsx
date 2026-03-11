@@ -38,15 +38,22 @@ function SOSOrb({
     y.set(e.clientY - rect.top - rect.height / 2);
   };
 
-  const handleMouseDown = () => {
+  const handleStart = (e?: React.MouseEvent | React.TouchEvent) => {
     if (isActive) return;
+    if (e) {
+      if ('button' in e && e.button !== 0) return;
+    }
+    
     setPressedState(true);
-    pressTimer.current = setTimeout(() => onActivate(), 0);
+    // Haptic feedback for iOS
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(100);
+    }
+    onActivate();
   };
 
-  const handleMouseUp = () => {
+  const handleEnd = () => {
     setPressedState(false);
-    if (pressTimer.current) clearTimeout(pressTimer.current);
   };
 
   return (
@@ -71,11 +78,15 @@ function SOSOrb({
 
         <motion.div
           onMouseMove={handleMouseMove}
-          onMouseLeave={() => { x.set(0); y.set(0); setHovered(false); }}
+          onMouseLeave={() => { x.set(0); y.set(0); setHovered(false); handleEnd(); }}
           onMouseEnter={() => setHovered(true)}
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
-          onClick={() => isActive && onDeactivate()}
+          onMouseDown={handleStart}
+          onMouseUp={handleEnd}
+          onTouchStart={(e) => { e.preventDefault(); handleStart(e); }}
+          onTouchEnd={(e) => { e.preventDefault(); handleEnd(); }}
+          onClick={() => {
+            if (isActive) onDeactivate();
+          }}
           style={{ rotateX: rX, rotateY: rY, transformStyle: 'preserve-3d' }}
           animate={{
             scale: pressed ? 0.94 : isActive ? [1, 1.04, 1] : hovered ? 1.05 : 1,

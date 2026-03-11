@@ -29,6 +29,8 @@ export default function IncidentReport() {
     const [isAnonymous, setIsAnonymous] = useState(false);
     const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
     const [loading, setLoading] = useState(false);
+    const [uploadPhase, setUploadPhase] = useState<string>('');
+    const [uploadProgress, setUploadProgress] = useState(0);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { startRecording, stopRecording, isRecording } = useAudioRecorder();
@@ -54,7 +56,31 @@ export default function IncidentReport() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
+        setUploadProgress(0);
+
+        const phases = [
+            { label: 'ENCRYPTING INTEL...', duration: 800 },
+            { label: 'QUANTUM TUNNELING...', duration: 1000 },
+            { label: 'SYNCHRONIZING GRID...', duration: 600 },
+            { label: 'LOG VERIFIED', duration: 400 }
+        ];
+
         try {
+            for (const phase of phases) {
+                setUploadPhase(phase.label);
+                let start = 0;
+                const step = 100 / (phase.duration / 50);
+                const phaseProgress = new Promise<void>(resolve => {
+                    const int = setInterval(() => {
+                        setUploadProgress(prev => {
+                            if (prev >= 100) { clearInterval(int); resolve(); return 100; }
+                            return prev + step;
+                        });
+                    }, 50);
+                });
+                await phaseProgress;
+            }
+
             const res = await fetch('/api/incident', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -71,6 +97,7 @@ export default function IncidentReport() {
             if (res.ok) {
                 toast.success('Evidence Logged Successfully');
                 setDescription('');
+                setSelectedFile(null);
             } else {
                 toast.error('Failed to transmit report');
             }
@@ -78,6 +105,8 @@ export default function IncidentReport() {
             toast.error('Connection Error');
         } finally {
             setLoading(false);
+            setUploadPhase('');
+            setUploadProgress(0);
         }
     };
 
@@ -252,14 +281,23 @@ export default function IncidentReport() {
                                 <button
                                     type="submit"
                                     disabled={loading || !description}
-                                    className={`btn-liquid w-full py-8 rounded-[2.5rem] font-black uppercase tracking-[0.3em] text-[12px] text-white shadow-2xl transition-all flex items-center justify-center gap-5 active:scale-[0.98] ${severity === 'Critical'
+                                    className={`btn-liquid w-full py-8 rounded-[2.5rem] font-black uppercase tracking-[0.3em] text-[12px] text-white shadow-2xl transition-all flex flex-col items-center justify-center gap-2 active:scale-[0.98] relative overflow-hidden ${severity === 'Critical'
                                         ? '!bg-gradient-to-r !from-red-600 !to-red-500 !shadow-red-500/40'
                                         : 'shadow-primary/30'
                                         }`}
                                 >
-                                    {loading ? 'TRANSMITTING ENCRYPTED PACKETS...' : 'LOG SECURE EVIDENCE'}
-                                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                                        <Send className="w-5 h-5" />
+                                    {loading && (
+                                        <motion.div 
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${uploadProgress}%` }}
+                                            className="absolute bottom-0 left-0 h-1 bg-white/40 z-20"
+                                        />
+                                    )}
+                                    <div className="flex items-center gap-5">
+                                        {loading ? uploadPhase : 'LOG SECURE EVIDENCE'}
+                                        <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                                            <Send className="w-5 h-5" />
+                                        </div>
                                     </div>
                                 </button>
                             </form>

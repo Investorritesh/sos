@@ -167,6 +167,8 @@ export default function SafeRoutePage() {
     const [mediaPreview, setMediaPreview] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
     const [isNavigating, setIsNavigating] = useState(false);
     const [navigationCheckpoint, setNavigationCheckpoint] = useState(0);
+    const [distanceRemaining, setDistanceRemaining] = useState(340);
+    const [scanProgress, setScanProgress] = useState(0);
 
     // ─── Load Leaflet Assets ─────────────────────────────────────────────────
     useEffect(() => {
@@ -331,8 +333,24 @@ export default function SafeRoutePage() {
     const calculateRoutes = useCallback(async () => {
         if (!destination.trim()) { toast.error('Enter destination'); return; }
         if (!userCoords) { toast.error('Waiting for locaton...'); return; }
+        if (!userCoords || !destination) {
+            toast.error('Tactical coordinates required');
+            return;
+        }
 
         setIsLoading(true);
+        setScanProgress(0);
+
+        // Simulation for scan progress
+        const scanInterval = setInterval(() => {
+            setScanProgress(prev => {
+                if (prev >= 100) {
+                    clearInterval(scanInterval);
+                    return 100;
+                }
+                return prev + Math.random() * 15;
+            });
+        }, 150);
         setShowRoutePanel(false);
 
         try {
@@ -464,10 +482,25 @@ export default function SafeRoutePage() {
         } catch (error: any) {
             console.error('Routing Error:', error);
             toast.error(error.message || 'Routing failed. Check your internet connection.');
+            clearInterval(scanInterval);
+            setScanProgress(100);
         } finally {
             setIsLoading(false);
         }
     }, [destination, userCoords, safetyZones]);
+
+    // Navigation Distance Simulation
+    useEffect(() => {
+        let interval: any;
+        if (isNavigating) {
+            interval = setInterval(() => {
+                setDistanceRemaining(prev => (prev > 10 ? prev - Math.floor(Math.random() * 5) : 10));
+            }, 1000);
+        } else {
+            setDistanceRemaining(340);
+        }
+        return () => clearInterval(interval);
+    }, [isNavigating]);
 
     const switchRoute = useCallback((type: 'safe' | 'short') => {
         setActiveRoute(type);
@@ -679,6 +712,15 @@ export default function SafeRoutePage() {
                                             </div>
                                             <span>NETWORK <span className="text-primary">SCAN</span></span>
                                         </h3>
+                                        {isLoading && (
+                                            <div className="w-full h-1 bg-white/5 rounded-full mt-4 overflow-hidden">
+                                                <motion.div 
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${scanProgress}%` }}
+                                                    className="h-full bg-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.5)]"
+                                                />
+                                            </div>
+                                        )}
                                         <p className="text-foreground/50 text-xs font-bold uppercase tracking-widest leading-relaxed mb-6">
                                             Our AI scans 2,400+ data points including street lighting, local incidents, and real-time user feedback.
                                         </p>
@@ -873,10 +915,10 @@ export default function SafeRoutePage() {
 
                                     {mediaPreview && (
                                         <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)] group">
-                                            {mediaPreview.type === 'image' ? (
-                                                <img src={mediaPreview.url} alt="Incident" className="w-full h-32 object-cover" />
+                                            {mediaPreview?.type === 'image' ? (
+                                                <img src={mediaPreview?.url} alt="Incident" className="w-full h-32 object-cover" />
                                             ) : (
-                                                <video src={mediaPreview.url} className="w-full h-32 object-cover" />
+                                                <video src={mediaPreview?.url} className="w-full h-32 object-cover" />
                                             )}
                                             <button
                                                 onClick={() => { setMediaPreview(null); setReportForm((prev: Partial<UserReport>) => ({ ...prev, mediaUrl: '' })); }}

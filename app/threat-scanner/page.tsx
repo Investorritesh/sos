@@ -25,6 +25,46 @@ export default function ThreatScanner() {
     const [scanPulse, setScanPulse] = useState(0);
     const [lastDetectionTime, setLastDetectionTime] = useState<number>(0);
     const [sysLogs, setSysLogs] = useState<string[]>(['INITIALIZING NEURAL LINK...', 'STANDBY MODE']);
+    
+    // Audio Hook for Tactical Chirps
+    const audioCtx = useRef<AudioContext | null>(null);
+    const playChirp = (type: 'lock' | 'scan' | 'alert') => {
+        if (!audioCtx.current) audioCtx.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        if (audioCtx.current.state === 'suspended') audioCtx.current.resume();
+        
+        const osc = audioCtx.current.createOscillator();
+        const gain = audioCtx.current.createGain();
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.current.destination);
+        
+        const now = audioCtx.current.currentTime;
+        
+        if (type === 'lock') {
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(880, now);
+            osc.frequency.exponentialRampToValueAtTime(440, now + 0.1);
+            gain.gain.setValueAtTime(0.05, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+            osc.start(now);
+            osc.stop(now + 0.1);
+        } else if (type === 'alert') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(220, now);
+            osc.frequency.linearRampToValueAtTime(880, now + 0.2);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+            osc.start(now);
+            osc.stop(now + 0.2);
+        } else {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1200, now);
+            gain.gain.setValueAtTime(0.02, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+            osc.start(now);
+            osc.stop(now + 0.05);
+        }
+    };
 
     // Load Model
     useEffect(() => {
@@ -118,12 +158,14 @@ export default function ThreatScanner() {
             });
 
             if (people.length >= 3 || (people.length >= 1 && hasClosePerson)) {
+                if (threatLevel !== 'Critical') playChirp('alert');
                 setThreatLevel('Critical');
                 if (Date.now() - lastDetectionTime > 2000) {
                     setSysLogs(prev => [`CRITICAL: TARGET PROXIMITY BREACHED [${new Date().toLocaleTimeString()}]`, ...prev.slice(0, 5)]);
                     setLastDetectionTime(Date.now());
                 }
             } else if (people.length > 0 || vehicles.length > 0) {
+                if (threatLevel === 'Safe') playChirp('lock');
                 setThreatLevel('Elevated');
                 if (Date.now() - lastDetectionTime > 3000) {
                     setSysLogs(prev => [`VECTORS IDENTIFIED: ${people.length}P ${vehicles.length}V`, ...prev.slice(0, 5)]);
@@ -151,11 +193,18 @@ export default function ThreatScanner() {
         const time = Date.now() / 1000;
         const scanLineY = (Math.sin(time * 2) + 1) / 2 * canvas.height;
         ctx.beginPath();
-        ctx.strokeStyle = 'rgba(99, 102, 241, 0.3)';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
         ctx.moveTo(0, scanLineY);
         ctx.lineTo(canvas.width, scanLineY);
         ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Scanning Text
+        ctx.fillStyle = 'rgba(99, 102, 241, 0.6)';
+        ctx.font = 'black 8px "Inter", sans-serif';
+        ctx.fillText('NEURAL_SCAN_ACTIVE // DEPTH: 94.2%', 10, scanLineY - 5);
 
         predictions.forEach(prediction => {
             const [x, y, width, height] = prediction.bbox;
@@ -225,10 +274,24 @@ export default function ThreatScanner() {
                 const cx = x + width/2;
                 const cy = y + height/2;
                 ctx.beginPath();
-                ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+                ctx.setLineDash([2, 2]);
+                ctx.arc(cx, cy, 8, 0, Math.PI * 2);
                 ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Audio hint for new high-confidence targets
+                if (Date.now() % 50 === 0) playChirp('scan');
             }
         });
+
+        // 6. Neural Bits (Decorative)
+        ctx.fillStyle = 'rgba(99, 102, 241, 0.2)';
+        ctx.font = '7px monospace';
+        for (let i = 0; i < 5; i++) {
+            const rx = Math.random() * canvas.width;
+            const ry = Math.random() * canvas.height;
+            ctx.fillText(Math.random().toString(16).substring(2, 6).toUpperCase(), rx, ry);
+        }
     };
 
     return (

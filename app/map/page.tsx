@@ -234,7 +234,7 @@ export default function MapPage() {
 
     const handleBroadcast = async () => {
         if (isSOSActive) {
-            stopAlarm(10000);
+            stopAlarm();
             setIsSOSActive(false);
 
             if (!activeSOSId) {

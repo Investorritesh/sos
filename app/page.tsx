@@ -82,10 +82,20 @@ function SOSOrb({
           onMouseEnter={() => setHovered(true)}
           onMouseDown={handleStart}
           onMouseUp={handleEnd}
-          onTouchStart={(e) => { e.preventDefault(); handleStart(e); }}
-          onTouchEnd={(e) => { e.preventDefault(); handleEnd(); }}
+          onTouchStart={(e) => { 
+            // Only set pressed state, don't preventDefault to allow click for deactivation
+            setPressedState(true);
+            if (typeof navigator !== 'undefined' && navigator.vibrate) {
+              navigator.vibrate(100);
+            }
+          }}
+          onTouchEnd={(e) => { 
+            setPressedState(false);
+          }}
           onClick={() => {
-            if (isActive) onDeactivate();
+            if (isActive) {
+              onDeactivate();
+            }
           }}
           style={{ rotateX: rX, rotateY: rY, transformStyle: 'preserve-3d' }}
           animate={{
@@ -439,7 +449,7 @@ export default function Home() {
     const acc = e.accelerationIncludingGravity;
     if (!acc) return;
     const d = Math.sqrt((acc.x ?? 0) ** 2 + (acc.y ?? 0) ** 2 + (acc.z ?? 0) ** 2);
-    if (d > 15) {
+    if (d > 25) { // Increased threshold for stability
       const now = Date.now();
       if (now - lastShake.current > 2000) { lastShake.current = now; handleActivate(); }
     }

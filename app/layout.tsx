@@ -7,6 +7,7 @@ import { ThemeProvider } from '@/components/ThemeProvider';
 import PWARegistration from '@/components/PWARegistration';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXTAUTH_URL || 'http://localhost:3000'),
   title: 'HerSecure | Women\'s Safety Platform',
   description: 'Elite AI-powered personal security platform. Real-time protection, emergency SOS, safe routing, and intelligent threat detection.',
   keywords: ['women safety', 'SOS alert', 'personal security', 'emergency response', 'AI protection'],
@@ -22,8 +23,17 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'HerSecure – Women\'s Safety Platform',
     description: 'Elite AI-powered personal security platform.',
+    url: '/',
+    siteName: 'HerSecure',
+    locale: 'en_US',
     type: 'website',
-    images: [{ url: '/icon-512.png' }],
+    images: [{ url: '/icon-512.png', width: 512, height: 512, alt: 'HerSecure Logo' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'HerSecure – Women\'s Safety Platform',
+    description: 'Elite AI-powered personal security platform.',
+    images: ['/icon-512.png'],
   },
 };
 

@@ -63,10 +63,11 @@ function MagneticLink({ href, label, icon: Icon, hasActiveSignal }: { href: stri
     );
 }
 
-export const Navbar = ({ pollingFrequency = 10000 }: { pollingFrequency?: number }) => {
+export const Navbar = ({ pollingFrequency = 5000 }: { pollingFrequency?: number }) => {
     const { data: session } = useSession();
     const { theme, toggleTheme } = useTheme();
     const [hasActiveSignal, setHasActiveSignal] = useState(false);
+    const [seenSignalIds, setSeenSignalIds] = useState<Set<string>>(new Set());
     const [mobileOpen, setMobileOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const { startAlarm, stopAlarm } = useAlarm();
@@ -84,9 +85,16 @@ export const Navbar = ({ pollingFrequency = 10000 }: { pollingFrequency?: number
                 const res = await fetch('/api/sos/received');
                 if (!res.ok) return;
                 const data = await res.json();
+                
                 if (Array.isArray(data) && data.length > 0) {
-                    if (!hasActiveSignal) {
+                    const currentIds = data.map((s: any) => s._id);
+                    const newSignals = currentIds.filter(id => !seenSignalIds.has(id));
+
+                    if (newSignals.length > 0) {
+                        // Only start alarm for NEWly detected signals
                         startAlarm();
+                        setSeenSignalIds(prev => new Set([...Array.from(prev), ...newSignals]));
+                        
                         toast.error(`CRITICAL: ${data[0].userId.name} TRANSMITTING SOS`, {
                             duration: 10000,
                             icon: '🚨',
@@ -95,7 +103,10 @@ export const Navbar = ({ pollingFrequency = 10000 }: { pollingFrequency?: number
                     }
                     setHasActiveSignal(true);
                 } else {
-                    if (hasActiveSignal) stopAlarm();
+                    if (hasActiveSignal) {
+                        stopAlarm();
+                        setSeenSignalIds(new Set()); // Reset when all clear
+                    }
                     setHasActiveSignal(false);
                 }
             } catch { /* silent */ }
@@ -165,6 +176,26 @@ export const Navbar = ({ pollingFrequency = 10000 }: { pollingFrequency?: number
                     </div>
 
                     <div className="flex items-center gap-2">
+                        <AnimatePresence>
+                            {useAlarm().isPlaying && (
+                                <motion.button
+                                    initial={{ opacity: 0, scale: 0.5, x: 20 }}
+                                    animate={{ opacity: 1, scale: 1, x: 0 }}
+                                    exit={{ opacity: 0, scale: 0.5, x: 20 }}
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={() => {
+                                        stopAlarm();
+                                        toast.success('Alarm Silenced');
+                                    }}
+                                    className="p-3 rounded-full bg-accent/20 border border-accent/30 text-accent hover:bg-accent/30 transition-all backdrop-blur-md flex items-center gap-2 px-4"
+                                >
+                                    <AlertCircle className="w-4 h-4 animate-pulse" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest">Silence</span>
+                                </motion.button>
+                            )}
+                        </AnimatePresence>
+
                         <motion.button
                             whileHover={{ scale: 1.1, rotate: 15 }}
                             whileTap={{ scale: 0.9 }}
